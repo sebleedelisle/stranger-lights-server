@@ -422,7 +422,7 @@ function initSocket() {
 	
 	});
 	function setControl(state) { 
-		inControl = true; //state;
+		inControl = state;
 		button.innerText=inControl?"In control" : "Request control";
 	}
 	socket.on('letter', function(data) { 
