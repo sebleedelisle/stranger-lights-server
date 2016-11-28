@@ -5,7 +5,7 @@ io = require('socket.io').listen(server);
 var port = parseInt(process.argv[2], 10) || 80;
 console.log('starting server on port', port); 
 
-server.listen(port); //start the webserver on port 8101
+server.listen(port); //start the webserver on specified port
 app.use(express.static('public')); //tell the server that ./public/ contains the static webpages
 
 // data we need : 

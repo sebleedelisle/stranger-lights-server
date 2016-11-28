@@ -89,64 +89,10 @@ var lightsById = {};
 window.addEventListener('load', initialise); 
 window.addEventListener('resize', onResize); 
 
-var lightRects = [
-	{"x":605,"y":266,"w":310,"h":464}, 	// A
-	{"x":991,"y":285,"w":285,"h":445}, 	// B
-	{"x":1317,"y":310,"w":247,"h":437},	// C
-	{"x":1629,"y":337,"w":280,"h":456},	// D
-	{"x":1941,"y":331,"w":310,"h":470},	// E
-	{"x":2289,"y":402,"w":233,"h":388},	// F
-	{"x":2547,"y":424,"w":247,"h":380},	// G
-	{"x":2845,"y":396,"w":247,"h":410},	// H
-	{"x":109,"y":643,"w":380,"h":624}, 	// I
-	{"x":687,"y":823,"w":323,"h":486}, 	// J
-	{"x":1056,"y":861,"w":288,"h":494},	// K
-	{"x":1382,"y":907,"w":301,"h":453},	// L
-	{"x":1702,"y":918,"w":271,"h":437},	// M
-	{"x":1993,"y":850,"w":239,"h":443},	// N
-	{"x":2267,"y":801,"w":236,"h":505},	// O
-	{"x":2552,"y":828,"w":280,"h":491},	// P
-	{"x":3071,"y":850,"w":372,"h":529},	// Q
-	{"x":459,"y":1311,"w":320,"h":529},	// R
-	{"x":806,"y":1376,"w":288,"h":483},	// S
-	{"x":1121,"y":1433,"w":233,"h":451},// T
-	{"x":1444,"y":1452,"w":269,"h":434},// U
-	{"x":1759,"y":1447,"w":282,"h":391},// V
-	{"x":2071,"y":1433,"w":271,"h":475},// W
-	{"x":2365,"y":1425,"w":239,"h":448},// X
-	{"x":2631,"y":1409,"w":290,"h":459},// Y
-	{"x":2981,"y":1395,"w":361,"h":467} // Z
-	];
-
-var bulbPositions = [ 
-	{"x":801,"y":334},	// A
-	{"x":1119,"y":348},	// B
-	{"x":1366,"y":388},	// C
-	{"x":1781,"y":456},	// D
-	{"x":2009,"y":464},	// E
-	{"x":2438,"y":565},	// F
-	{"x":2682,"y":519},	// G
-	{"x":2967,"y":516},	// H
-	{"x":342,"y":774},	// I
-	{"x":842,"y":923},	// J
-	{"x":1140,"y":977},	// K
-	{"x":1474,"y":1018},// L
-	{"x":1808,"y":1020},// M
-	{"x":2058,"y":950},	// N
-	{"x":2367,"y":899},	// O
-	{"x":2647,"y":920},	// P
-	{"x":3244,"y":991},	// Q
-	{"x":584,"y":1398}, // R
-	{"x":904,"y":1477}, // S
-	{"x":1165,"y":1558},// T
-	{"x":1567,"y":1545},// U
-	{"x":1873,"y":1556},// V
-	{"x":2165,"y":1520},// W
-	{"x":2422,"y":1510},// X
-	{"x":2742,"y":1477},// Y
-	{"x":3174,"y":1512}	// Z
-	];
+var lightRects = [{"x":302.5,"y":133,"w":155,"h":232},{"x":495.5,"y":142.5,"w":142.5,"h":222.5},{"x":658.5,"y":155,"w":123.5,"h":218.5},{"x":814.5,"y":168.5,"w":140,"h":228},{"x":970.5,"y":165.5,"w":155,"h":235},{"x":1144.5,"y":201,"w":116.5,"h":194},{"x":1273.5,"y":212,"w":123.5,"h":190},{"x":1422.5,"y":198,"w":123.5,"h":205},{"x":54.5,"y":321.5,"w":190,"h":312},{"x":343.5,"y":411.5,"w":161.5,"h":243},{"x":528,"y":430.5,"w":144,"h":247},{"x":691,"y":453.5,"w":150.5,"h":226.5},{"x":851,"y":459,"w":135.5,"h":218.5},{"x":996.5,"y":425,"w":119.5,"h":221.5},{"x":1133.5,"y":400.5,"w":118,"h":252.5},{"x":1276,"y":414,"w":140,"h":245.5},{"x":1535.5,"y":425,"w":186,"h":264.5},{"x":229.5,"y":655.5,"w":160,"h":264.5},{"x":403,"y":688,"w":144,"h":241.5},{"x":560.5,"y":716.5,"w":116.5,"h":225.5},{"x":722,"y":726,"w":134.5,"h":217},{"x":879.5,"y":723.5,"w":141,"h":195.5},{"x":1035.5,"y":716.5,"w":135.5,"h":237.5},{"x":1182.5,"y":712.5,"w":119.5,"h":224},{"x":1315.5,"y":704.5,"w":145,"h":229.5},{"x":1490.5,"y":697.5,"w":180.5,"h":233.5}];
 	
+var bulbPositions = [{"x":400.5,"y":167},{"x":559.5,"y":174},{"x":683,"y":194},{"x":890.5,"y":228},{"x":1004.5,"y":232},{"x":1219,"y":282.5},{"x":1341,"y":259.5},{"x":1483.5,"y":258},{"x":171,"y":387},{"x":421,"y":461.5},{"x":570,"y":488.5},{"x":737,"y":509},{"x":904,"y":510},{"x":1029,"y":475},{"x":1183.5,"y":449.5},{"x":1323.5,"y":460},{"x":1622,"y":495.5},{"x":292,"y":699},{"x":452,"y":738.5},{"x":582.5,"y":779},{"x":783.5,"y":772.5},{"x":936.5,"y":778},{"x":1082.5,"y":760},{"x":1211,"y":755},{"x":1371,"y":738.5},{"x":1587,"y":756}]
+
 var rotations = [
 	-35, 	// A
 	-55,	// B
@@ -333,7 +279,7 @@ function Light(rect, letter, bulbpos, bulbColour) {
 			ctx.save(); 
 			ctx.rotate(Math.PI/180 * this.rotation); 
 			ctx.scale(0.5,1); 
-			ctx.arc(0,0,35,TORAD*225,TORAD*315,true); 
+			ctx.arc(0,0,17.5,TORAD*225,TORAD*315,true); 
 			ctx.fill();
 			ctx.restore();
 		
@@ -343,7 +289,7 @@ function Light(rect, letter, bulbpos, bulbColour) {
 			ctx.globalAlpha = map(b,0,1,0.6,0.9); 
 			ctx.scale(b, b); 
 		
-			var g = ctx.createRadialGradient(0,0,0,0,0,400); 
+			var g = ctx.createRadialGradient(0,0,0,0,0,200); 
 			g.addColorStop(0,hsla(h,s,100,1)); 
 			g.addColorStop(0.07,hsla(h,s,100,1)); 
 			g.addColorStop(0.15,hsla(h,s,l,1));
@@ -351,7 +297,7 @@ function Light(rect, letter, bulbpos, bulbColour) {
 			g.addColorStop(1,hsla(h,s,l,0));
 			ctx.fillStyle = g; 
 			ctx.beginPath();
-			ctx.arc(0,0,400,0,Math.PI*2,true); 
+			ctx.arc(0,0,200,0,Math.PI*2,true); 
 			ctx.fill();
 		
 			ctx.restore(); 
@@ -476,7 +422,7 @@ function initSocket() {
 	
 	});
 	function setControl(state) { 
-		inControl = state;
+		inControl = true; //state;
 		button.innerText=inControl?"In control" : "Request control";
 	}
 	socket.on('letter', function(data) { 
@@ -505,17 +451,6 @@ function initSocket() {
 	
 	return socket; 
 }
-// 
-// function letterMouseDown(e){	
-// 	if(!inControl) return; 
-// 	var letterdom = e.srcElement; 
-// 	letterdom.style.background = 'red';
-// 	
-// 	currentLetterDom = letterdom; 
-// 	console.log(e.srcElement.innerText);
-// 	socket.emit('letter', { letter:letterdom.innerText, type:'on', time:Date.now() });
-// 	e.preventDefault();
-// }
 
 function updatePointer(pos){ 
 	//if(!inControl) pointer.style.visibility = 'visible';
@@ -524,17 +459,7 @@ function updatePointer(pos){
 	
 	
 }
-// 
-// function letterMouseUp(e){
-// 	if(!inControl) return; 
-// 	var letterdom = e.srcElement; 
-// 	if(currentLetterDom) { 
-// 		letterdom.style.background = 'white';
-// 		console.log(e.srcElement.innerText); 
-// 		currentLetterDom = null;
-// 		socket.emit('letter', { letter:letterdom.innerText, type:'off', time:Date.now()  });
-// 	}
-// }
+
 
 function requestControl() { 
 	console.log('request control'); 
@@ -544,10 +469,6 @@ function requestControl() {
 	}
 }
 
-// function onMouseMove(e) { 
-// 	mouseX = e.clientX; 
-// 	mouseY = e.clientY; 
-// }
 
 function rgb(r, g, b) { return 'rgb('+clamp(Math.round(r),0,255)+', '+clamp(Math.round(g),0,255)+', '+clamp(Math.round(b),0,255)+')';};
 function rgba(r, g, b, a) { return 'rgba('+clamp(Math.round(r),0,255)+', '+clamp(Math.round(g),0,255)+', '+clamp(Math.round(b),0,255)+', '+clamp(a,0,1)+')';};
