@@ -2,8 +2,10 @@ express = require('express');
 app = express();
 server = require('http').createServer(app);
 io = require('socket.io').listen(server);	
+var port = parseInt(process.argv[2], 10) || 80;
+console.log('starting server on port', port); 
 
-server.listen(80); //start the webserver on port 8101
+server.listen(port); //start the webserver on port 8101
 app.use(express.static('public')); //tell the server that ./public/ contains the static webpages
 
 // data we need : 
