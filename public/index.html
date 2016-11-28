@@ -71,19 +71,10 @@ console.log("room", room);
 
 var socket = initSocket(); 
 
-// 
-// var letterDoms = []; 
-// var currentLetterDom = null; 
 var outputTextDom = document.getElementById('outputText'); 
-
-
-
 
 var lights = [];
 var lightsById = {}; 
-
-// TEMP
-
 
 
 window.addEventListener('load', initialise); 
@@ -128,7 +119,6 @@ function initialise() {
 	
 	initInterface(); 
 	
-	//window.addEventListener('mousemove', onMouseMove); 
 	setInterval(update, 1000/60); 
 	
 	pointer.style.position = 'absolute';
@@ -304,12 +294,6 @@ function Light(rect, letter, bulbpos, bulbColour) {
 			ctx.restore(); 
 		
 		}
-			// 
-			// 
-			// if(this.hitTest(mouseX, mouseY)){
-			// 		var r = this.rect; 
-			// 		ctx.strokeRect(r.x, r.y, r.w, r.h);
-			// }
 		
 	}
 	
@@ -319,7 +303,7 @@ function Light(rect, letter, bulbpos, bulbColour) {
 		this.lightOn = true; 
 
 	}
-	// 
+
 	this.mouseUp = function(p) { 
 
 	 	socket.emit('letter', { letter:this.letter, type:'off', time:Date.now() });
@@ -328,10 +312,6 @@ function Light(rect, letter, bulbpos, bulbColour) {
 	}
 	
 	this.hitTest = function(x,y) { 
-		// TODO this scale should really be a variable
-		// var s = background.width/canvas.width; 
-		// 		x*=s; 
-		// 		y*=s; 
 		if((x<rect.x) || (x>rect.x+rect.w) ) return false; 
 		else if((y<rect.y) || (y>rect.y+rect.h) ) return false; 
 		else return true; 
@@ -427,9 +407,6 @@ function initSocket() {
 		button.innerText=inControl?"In control" : "Request control";
 	}
 	socket.on('letter', function(data) { 
-	//	console.log('letter', data); 
-		//var letterdom = document.getElementById(data.letter);  
-		//letterdom.style.background = (data.type=='on') ? 'red': 'white';
 		var l = lightsById[data.letter];
 		console.log(l, data.status); 
 		if(l) {
@@ -437,15 +414,12 @@ function initSocket() {
 		} 
 	});
 	socket.on('mouse', function(data) { 
-		//console.log('mouse', data); 
-		//var letterdom = document.getElementById(data.letter);  
-		//letterdom.style.background = (data.type=='on') ? 'red': 'white';
 		if(!inControl) updatePointer(data); 
 	});
 	
 	socket.on('status', function(data) { 
 		//console.log('status', data); 
-		nextChangeTime = data.queueShiftTime - socket.timeOffset; 
+		nextChangeTime = data.queueShiftTime + socket.timeOffset; 
 		queue = data.queue; 
 	
 	});
