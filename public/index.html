@@ -56,7 +56,7 @@ var name = '';
 var queue = []; 
 var roomList = []; 
 var inControl = false; 
-var mouseX = 0, mouseY = 0, lastMouseX, lastMouseY, mouseDown = false; 
+var mouseX = 0, mouseY = 0, lastMouseX, lastMouseY, mouseDown = false, lastMouseSent = 0; 
 var pointer = new Image(); 
 	pointer.src = 'pointer.png'; 
 var pointerX = 0, pointerY=0;
@@ -175,18 +175,19 @@ function initInterface() {
 
 function update() { 
 	if(inControl) { 
-		if((lastMouseX!=mouseX) || (lastMouseY!=mouseY)) {
-			socket.emit('mouse', {x:mouseX, y:mouseY});
-		}
-	} 
-	lastMouseX = mouseX; 
-	lastMouseY = mouseY; 
-	
-	
-	
+		if(Date.now()-lastMouseSent>200) { 
+			if((lastMouseX!=mouseX) || (lastMouseY!=mouseY)) {
+				socket.emit('mouse', {x:mouseX, y:mouseY});
+			}
+		
+			lastMouseX = mouseX; 
+			lastMouseY = mouseY;
+			lastMouseSent = Date.now(); 
+		} 
+	}
+
 	updateDisplay(); 
-	
-	
+
 }
 
 
