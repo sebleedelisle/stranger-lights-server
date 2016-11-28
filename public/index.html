@@ -1,0 +1,586 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+  <head>
+	<title>Stranger Lights</title>
+	<script src="socket.io/socket.io.js"></script>
+	<style>
+	body { 
+		margin:0px;
+	}
+	.letter {
+		
+		font-family : sans-serif;
+		display : block; 
+		background : white; 
+		border : 2px black solid;
+		border-radius : 8px;  
+		width : 70px; 
+		height : 70px; 
+		float : left;
+		text-align:center;
+		margin:1em;
+		padding-top:1.5em;
+		padding-bottom:0em;
+	} 
+	#button {	
+		font-family : sans-serif;
+		display : block; 
+		background : white; 
+		border : 2px black solid;
+		border-radius : 8px;  
+		width :10em; 
+		height : 2em; 
+		float : left;
+		text-align:center;
+		margin:1em;
+		padding-top:1em;
+		padding-bottom:0em;
+	}
+	#outputText { 
+		
+		font-family : sans-serif;
+		
+	}
+	</style>
+  </head>
+  <body>
+	
+	<span id="button" onclick="requestControl()">Request control</span>
+	<span id="outputText" ></span>
+	<script src="lightcolours.js"></script>
+	<script type="text/javascript">
+
+
+
+var name = ''; 
+var queue = []; 
+var roomList = []; 
+var inControl = false; 
+var mouseX = 0, mouseY = 0, lastMouseX, lastMouseY, mouseDown = false; 
+var pointer = new Image(); 
+	pointer.src = 'pointer.png'; 
+var pointerX = 0, pointerY=0;
+var background = new Image(); 
+	background.src = 'wallbackground.jpg'; 
+var nextChangeTime = 0; 
+var canvas = document.createElement('canvas'); 
+var ctx = canvas.getContext('2d');
+
+var room = getQueryVariable("room") || "default";
+console.log("room", room);
+
+var socket = initSocket(); 
+
+// 
+// var letterDoms = []; 
+// var currentLetterDom = null; 
+var outputTextDom = document.getElementById('outputText'); 
+
+
+
+
+var lights = [];
+var lightsById = {}; 
+
+// TEMP
+
+
+
+window.addEventListener('load', initialise); 
+window.addEventListener('resize', onResize); 
+
+var lightRects = [
+	{"x":605,"y":266,"w":310,"h":464}, 	// A
+	{"x":991,"y":285,"w":285,"h":445}, 	// B
+	{"x":1317,"y":310,"w":247,"h":437},	// C
+	{"x":1629,"y":337,"w":280,"h":456},	// D
+	{"x":1941,"y":331,"w":310,"h":470},	// E
+	{"x":2289,"y":402,"w":233,"h":388},	// F
+	{"x":2547,"y":424,"w":247,"h":380},	// G
+	{"x":2845,"y":396,"w":247,"h":410},	// H
+	{"x":109,"y":643,"w":380,"h":624}, 	// I
+	{"x":687,"y":823,"w":323,"h":486}, 	// J
+	{"x":1056,"y":861,"w":288,"h":494},	// K
+	{"x":1382,"y":907,"w":301,"h":453},	// L
+	{"x":1702,"y":918,"w":271,"h":437},	// M
+	{"x":1993,"y":850,"w":239,"h":443},	// N
+	{"x":2267,"y":801,"w":236,"h":505},	// O
+	{"x":2552,"y":828,"w":280,"h":491},	// P
+	{"x":3071,"y":850,"w":372,"h":529},	// Q
+	{"x":459,"y":1311,"w":320,"h":529},	// R
+	{"x":806,"y":1376,"w":288,"h":483},	// S
+	{"x":1121,"y":1433,"w":233,"h":451},// T
+	{"x":1444,"y":1452,"w":269,"h":434},// U
+	{"x":1759,"y":1447,"w":282,"h":391},// V
+	{"x":2071,"y":1433,"w":271,"h":475},// W
+	{"x":2365,"y":1425,"w":239,"h":448},// X
+	{"x":2631,"y":1409,"w":290,"h":459},// Y
+	{"x":2981,"y":1395,"w":361,"h":467} // Z
+	];
+
+var bulbPositions = [ 
+	{"x":801,"y":334},	// A
+	{"x":1119,"y":348},	// B
+	{"x":1366,"y":388},	// C
+	{"x":1781,"y":456},	// D
+	{"x":2009,"y":464},	// E
+	{"x":2438,"y":565},	// F
+	{"x":2682,"y":519},	// G
+	{"x":2967,"y":516},	// H
+	{"x":342,"y":774},	// I
+	{"x":842,"y":923},	// J
+	{"x":1140,"y":977},	// K
+	{"x":1474,"y":1018},// L
+	{"x":1808,"y":1020},// M
+	{"x":2058,"y":950},	// N
+	{"x":2367,"y":899},	// O
+	{"x":2647,"y":920},	// P
+	{"x":3244,"y":991},	// Q
+	{"x":584,"y":1398}, // R
+	{"x":904,"y":1477}, // S
+	{"x":1165,"y":1558},// T
+	{"x":1567,"y":1545},// U
+	{"x":1873,"y":1556},// V
+	{"x":2165,"y":1520},// W
+	{"x":2422,"y":1510},// X
+	{"x":2742,"y":1477},// Y
+	{"x":3174,"y":1512}	// Z
+	];
+	
+var rotations = [
+	-35, 	// A
+	-55,	// B
+	8, 		// C
+	10,		// D
+	-35, 	// E
+	-30,	// F
+	-65, 	// G
+	-25,	// H
+	5, 		// I
+	0, 		// J
+	-20,	// K
+	8,		// L
+	-10,		// M
+	-8, 	// N
+	-12,	// O
+	-13,	// P
+	13,		// Q
+	2, 		// R
+	20,		// S
+	8, 		// T
+	-60,	// U
+	5, 		// V
+	0, 		// W
+	-30, 		// X
+	0, 		// Y
+	-10 		// Z
+
+]; 
+
+
+function initialise() { 
+	
+	initInterface(); 
+	
+	//window.addEventListener('mousemove', onMouseMove); 
+	setInterval(update, 1000/60); 
+	
+	pointer.style.position = 'absolute';
+	pointer.style.width = '20px'; 
+	pointer.style.height = '20px'; 
+	pointer.style.visibility = 'hidden'; 
+	
+}
+
+
+function initInterface() { 
+
+	canvas.width = window.innerWidth; 
+	canvas.height = window.innerWidth*background.height/background.width; 
+	document.body.appendChild(canvas); 
+	
+	canvas.addEventListener('mousemove', canvasMouseMove); 
+	canvas.addEventListener('mousedown', canvasMouseDown); 
+	canvas.addEventListener('mouseup', canvasMouseUp);
+	canvas.addEventListener('mouseout', canvasMouseUp);	
+	var letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'; 
+	
+	// is there a better way to move this down? 
+	document.body.removeChild(outputTextDom); 
+	var br = document.createElement('br'); 
+	br.clear = 'all'; 
+	document.body.appendChild(br); 
+	document.body.appendChild(outputTextDom); 
+	document.body.appendChild(button); 
+	document.body.appendChild(pointer);
+	
+	for(var i = 0; i<letters.length; i++) { 
+	
+		var letter =  letters[i]; 
+		var light = new Light(lightRects[i], letter, bulbPositions[i], colours[lightColours[i]]); 
+		if(rotations.length>i) light.rotation = rotations[i]; 
+		lights.push(light); 
+		lightsById[letter] = light;
+		
+	}
+	
+	
+}
+
+function update() { 
+	if(inControl) { 
+		if((lastMouseX!=mouseX) || (lastMouseY!=mouseY)) {
+			socket.emit('mouse', {x:mouseX, y:mouseY});
+		}
+	} 
+	lastMouseX = mouseX; 
+	lastMouseY = mouseY; 
+	
+	
+	
+	updateDisplay(); 
+	
+	
+}
+
+
+
+function updateDisplay() { 
+	
+	// TODO "dirty" flag to avoid constant redraws
+	ctx.save();
+	var s = canvas.width/background.width;  
+	ctx.scale(s,s); 
+	ctx.drawImage(background, 0,0); 
+	
+	ctx.strokeStyle = 'yellow'; 
+	ctx.fillStyle = 'white'; 
+	ctx.lineWidth = 5; 
+	for(var i = 0; i<lights.length; i++) { 
+		var l = lights[i]; 
+		l.render(ctx); 
+		
+	}
+
+	if(!inControl) { 
+		
+		ctx.drawImage(pointer, pointerX, pointerY, pointer.width*2, pointer.height*2); 
+	}
+
+	ctx.restore(); 
+	
+	// TODO store text in a string and compare before updating dom element
+	
+	outputTextDom.innerHTML = "Connected as <b>"+socket.name+"</b>"; 
+	if(inControl) outputTextDom.innerHTML+="<br>You are now in control"; 
+	
+	var changeTime = Math.ceil(((nextChangeTime-Date.now())/1000));
+	outputTextDom.innerHTML+="<br>"+changeTime;
+	if(queue.length>0) { 
+		outputTextDom.innerHTML+="<br>Queue :";
+		for (var i = 0; i<queue.length; i++) { 
+			outputTextDom.innerHTML+="<br>" + queue[i];
+		}
+		
+	}
+	outputTextDom.innerHTML+="<br clear='all'>"
+
+	
+}
+
+function onResize(){ 
+	canvas.width = window.innerWidth; 
+	canvas.height = window.innerWidth*background.height/background.width;
+}
+
+
+
+
+function Light(rect, letter, bulbpos, bulbColour) { 
+	
+	var rect = this.rect = rect; 
+	this.letter = letter; 
+	this.bulbPosition = bulbpos; 
+	this.bulbColour = bulbColour; 
+	this.lightOn = false; 
+	this.rotation = 0;
+	this.brightness = 0; 
+
+	this.render = function(ctx) { 
+		if(this.lightOn) { 
+			this.brightness+=((1-this.brightness))*0.85; 
+		} else { 
+			this.brightness*=0.6; 
+		}
+		
+		if(this.brightness>0) { 
+		
+			var b = this.bulbPosition; 
+			
+			var h = bulbColour.h; 
+			var s = bulbColour.s; 
+			var l = bulbColour.l; 
+			
+			ctx.save(); 
+			ctx.globalAlpha = map(this.brightness,0,0.3,0,1, true); 
+			ctx.fillStyle = hsl(h, s, l); 
+			ctx.globalCompositeOperation = 'lighter'; 
+			ctx.translate(b.x, b.y); 
+		
+			var TORAD = Math.PI/180; 
+		
+			ctx.beginPath(); 
+			ctx.save(); 
+			ctx.rotate(Math.PI/180 * this.rotation); 
+			ctx.scale(0.5,1); 
+			ctx.arc(0,0,35,TORAD*225,TORAD*315,true); 
+			ctx.fill();
+			ctx.restore();
+		
+			ctx.rotate(Math.PI/180 * this.rotation); 
+			ctx.scale(1,0.9); 
+			var b = map(Math.sin(Date.now()/20)+Math.random(), -1,2,0.98,1)*this.brightness;
+			ctx.globalAlpha = map(b,0,1,0.6,0.9); 
+			ctx.scale(b, b); 
+		
+			var g = ctx.createRadialGradient(0,0,0,0,0,400); 
+			g.addColorStop(0,hsla(h,s,100,1)); 
+			g.addColorStop(0.07,hsla(h,s,100,1)); 
+			g.addColorStop(0.15,hsla(h,s,l,1));
+			g.addColorStop(0.4,hsla(h,s,l,0.2));
+			g.addColorStop(1,hsla(h,s,l,0));
+			ctx.fillStyle = g; 
+			ctx.beginPath();
+			ctx.arc(0,0,400,0,Math.PI*2,true); 
+			ctx.fill();
+		
+			ctx.restore(); 
+		
+		}
+			// 
+			// 
+			// if(this.hitTest(mouseX, mouseY)){
+			// 		var r = this.rect; 
+			// 		ctx.strokeRect(r.x, r.y, r.w, r.h);
+			// }
+		
+	}
+	
+	this.mouseDown = function(p) { 
+
+		socket.emit('letter', { letter:this.letter, type:'on', time:Date.now() });
+		this.lightOn = true; 
+
+	}
+	// 
+	this.mouseUp = function(p) { 
+
+	 	socket.emit('letter', { letter:this.letter, type:'off', time:Date.now() });
+		this.lightOn = false;
+		
+	}
+	
+	this.hitTest = function(x,y) { 
+		// TODO this scale should really be a variable
+		// var s = background.width/canvas.width; 
+		// 		x*=s; 
+		// 		y*=s; 
+		if((x<rect.x) || (x>rect.x+rect.w) ) return false; 
+		else if((y<rect.y) || (y>rect.y+rect.h) ) return false; 
+		else return true; 
+	}
+		
+}
+function canvasMouseMove(e) {
+	
+	var s = background.width/canvas.width; 
+
+	mouseX = (e.offsetX)*s; 
+	mouseY = (e.offsetY)*s;
+
+	if(!inControl) return; 
+
+	for(var i = 0; i<lights.length; i++)  { 
+		var l = lights[i]; 
+		if((l.lightOn) && (!l.hitTest(mouseX, mouseY))) { 
+			l.mouseUp(); 
+		}
+		else if((mouseDown) && (!l.lightOn) && (l.hitTest(mouseX, mouseY))) {
+			l.mouseDown(); 
+		}
+		
+	}
+
+
+}
+
+function canvasMouseDown(e) { 
+	// var s = background.width/canvas.width;
+	// 	p = {x:Math.round(e.clientX*s), y:Math.round(e.clientY*s)};
+	// 	console.log(p); 
+	mouseDown = true; 
+
+	e.preventDefault();
+	if(!inControl) return; 
+
+	for(var i = 0; i<lights.length; i++)  { 
+
+		var l = lights[i]; 
+		if(l.hitTest(mouseX, mouseY)) { 
+			l.mouseDown(); 
+		}
+		
+	}
+
+
+}
+function canvasMouseUp(e) { 
+	mouseDown = false; 
+
+	if(!inControl) return; 
+	
+	for(var i = 0; i<lights.length; i++)  { 
+		var l = lights[i]; 
+		
+		if(l.lightOn) l.mouseUp(); 
+
+
+	}	
+}
+
+
+
+function initSocket() { 
+	var socket = io.connect();
+
+	socket.on('led', function (data) {
+	
+	});
+	socket.on('connect', function() { 
+		socket.emit('register', {type:'sender', room:room}); 
+	});
+	socket.on('registered', function(data) { 
+		console.log('registered', data); 
+		socket.name = data.name;
+		socket.timeOffset = Date.now() - data.time;
+		
+		setControl(false);
+		updateDisplay();
+	});
+	
+	socket.on('control', function(state) { 
+		console.log('control', state); 
+		// outputTextDom.innerHTML = "control : "+state;
+		setControl(state); 
+		updateDisplay(); 
+	
+	});
+	function setControl(state) { 
+		inControl = state;
+		button.innerText=inControl?"In control" : "Request control";
+	}
+	socket.on('letter', function(data) { 
+	//	console.log('letter', data); 
+		//var letterdom = document.getElementById(data.letter);  
+		//letterdom.style.background = (data.type=='on') ? 'red': 'white';
+		var l = lightsById[data.letter];
+		console.log(l, data.status); 
+		if(l) {
+			l.lightOn = data.type=='on'; 
+		} 
+	});
+	socket.on('mouse', function(data) { 
+		//console.log('mouse', data); 
+		//var letterdom = document.getElementById(data.letter);  
+		//letterdom.style.background = (data.type=='on') ? 'red': 'white';
+		if(!inControl) updatePointer(data); 
+	});
+	
+	socket.on('status', function(data) { 
+		//console.log('status', data); 
+		nextChangeTime = data.queueShiftTime - socket.timeOffset; 
+		queue = data.queue; 
+	
+	});
+	
+	return socket; 
+}
+// 
+// function letterMouseDown(e){	
+// 	if(!inControl) return; 
+// 	var letterdom = e.srcElement; 
+// 	letterdom.style.background = 'red';
+// 	
+// 	currentLetterDom = letterdom; 
+// 	console.log(e.srcElement.innerText);
+// 	socket.emit('letter', { letter:letterdom.innerText, type:'on', time:Date.now() });
+// 	e.preventDefault();
+// }
+
+function updatePointer(pos){ 
+	//if(!inControl) pointer.style.visibility = 'visible';
+	pointerX = pos.x; 
+	pointerY = pos.y; 
+	
+	
+}
+// 
+// function letterMouseUp(e){
+// 	if(!inControl) return; 
+// 	var letterdom = e.srcElement; 
+// 	if(currentLetterDom) { 
+// 		letterdom.style.background = 'white';
+// 		console.log(e.srcElement.innerText); 
+// 		currentLetterDom = null;
+// 		socket.emit('letter', { letter:letterdom.innerText, type:'off', time:Date.now()  });
+// 	}
+// }
+
+function requestControl() { 
+	console.log('request control'); 
+	if(!inControl) { 
+		socket.emit('joinqueue'); 
+		button.innerText="Control Requested"; 
+	}
+}
+
+// function onMouseMove(e) { 
+// 	mouseX = e.clientX; 
+// 	mouseY = e.clientY; 
+// }
+
+function rgb(r, g, b) { return 'rgb('+clamp(Math.round(r),0,255)+', '+clamp(Math.round(g),0,255)+', '+clamp(Math.round(b),0,255)+')';};
+function rgba(r, g, b, a) { return 'rgba('+clamp(Math.round(r),0,255)+', '+clamp(Math.round(g),0,255)+', '+clamp(Math.round(b),0,255)+', '+clamp(a,0,1)+')';};
+function hsl(h, s, l) { return 'hsl('+h+', '+clamp(s,0,100)+'%, '+clamp(l,0,100)+'%)';};
+function hsla(h, s, l, a) { return 'hsla('+h+', '+clamp(s,0,100)+'%, '+clamp(l,0,100)+'%, '+clamp(a,0,1)+')';};
+
+
+function map(value, min1, max1, min2, max2, clampResult) { 
+	var returnvalue = ((value-min1) / (max1 - min1) * (max2-min2)) + min2; 
+	if(clampResult) return clamp(returnvalue, min2, max2); 
+	else return returnvalue; 
+};
+
+function clamp(value, min, max) { 
+	if(max<min) { 
+		var temp = min; 
+		min = max; 
+		max = temp; 
+	}
+	return Math.max(min, Math.min(value, max)); 
+};
+function getQueryVariable(variable)
+{
+       var query = window.location.search.substring(1);
+console.log(query); 
+       var vars = query.split("&");
+       for (var i=0;i<vars.length;i++) {
+               var pair = vars[i].split("=");
+console.log(pair);
+               if(pair[0] == variable){return pair[1];}
+       }
+       return(false);
+}		
+	</script>
+  </body>
+</html>
