@@ -35,7 +35,7 @@
 		
 		padding : 1em;
 		text-align:center;
-		margin:1em;
+		margin:1.5em;
 		padding-top:1em;
 		padding-bottom:1em;
 	
@@ -55,7 +55,7 @@
   </head>
   <body>
 	
-	<span id="button" onclick="requestControl()">Request control</span>
+	<span id="button" onclick="buttonPressed()">Request control</span>
 	<span id="outputText" ></span>
 	<script src="lightcolours.js"></script>
 	<script type="text/javascript">
@@ -87,6 +87,8 @@ var outputTextDom = document.getElementById('outputText');
 
 var lights = [];
 var lightsById = {}; 
+var queueJoined = false; 
+var queueRequestWaiting = false; 
 
 
 window.addEventListener('load', initialise); 
@@ -163,11 +165,13 @@ function initInterface() {
 		lightsById[letter] = light;
 		
 	}
+
 	
 	
 }
 
 function update() { 
+	
 	if(inControl) { 
 		if(Date.now()-lastMouseSent>100) { 
 			if((lastMouseX!=mouseX) || (lastMouseY!=mouseY)) {
@@ -195,6 +199,7 @@ function updateDisplay() {
 	}
 	
 	if(pointer.update()) dirty = true; 
+	
 	
 	if(dirty) { 
 		ctx.save();
@@ -226,46 +231,51 @@ function updateDisplay() {
 
 	var changeTime = Math.ceil(((nextChangeTime-Date.now())/1000));
 	
-	
-	if(inControl) { 
+	if(socket.connected) {
+		if(inControl) { 
 		
-		if(changeTime<=10) { 
-			if(Date.now()%500<300) { 
-				newText = "<b>"+changeTime+" SECOND"+(changeTime!=1?"S":"")+" LEFT!"; 
+			if(changeTime<=10) { 
+				if(Date.now()%500<300) { 
+					newText = "<b>"+changeTime+" SECOND"+(changeTime!=1?"S":"")+" LEFT!"; 
+				}
+			} else {
+				newText+="Send your message now!"; 
 			}
-		} else {
-			newText+="You are now in control"; 
-		}
 		
-	} else { 
-		newText = "Connected as <b>"+socket.name+"</b>"; 
-		if(currentControllerName) newText+="<br>"+currentControllerName+" is currently in control"; 
+		} else { 
+			newText = "Connected as <b>"+socket.name+"</b>"; 
+			if(currentControllerName) newText+="<br>"+currentControllerName+" is currently in control"; 
 	
-		newText+="<br>";
+			newText+="<br><br>";
 		
-		if((changeTime>0) && (changeTime<19)) {
-			newText+="Next change in "+changeTime;
-		}
-		if(queue.length>0) { 
-			newText+="<br><br>Waiting list :";
-			for (var i = 0; i<queue.length; i++) { 
-				var qname = queue[i]; 
-				if(qname==name) {
-					newText+="<br>"
-					if(i==0) { 
-						if((changeTime>10) || (Date.now()%500<300)) newText +="<b>> "+qname+" < YOU'RE UP NEXT! </b>";
+			if((changeTime>0) && (changeTime<19)) {
+				newText+="Next change in "+changeTime;
+			}
+			if(queue.length>0) { 
+				newText+="<br><br>Waiting list :";
+				for (var i = 0; i<queue.length; i++) { 
+					var qname = queue[i]; 
+					if(qname==name) {
+						newText+="<br>"
+						if(i==0) { 
+							if((changeTime>10) || (Date.now()%500<300)) newText +="<b>"+qname+" < YOU'RE UP NEXT! </b>";
+						} else { 
+							newText +="<b>"+qname+"</b> < you ";
+						}
 					} else { 
-						newText +="<b>> "+qname+" <</b> you ";
-					}
-				} else { 
-					newText+="<br>" + qname;
- 				}
+						newText+="<br>" + qname;
+	 				}
 					
+				}
 			}
+			newText+='<br clear="all">';
 		}
-		newText+='<br clear="all">';
-	}
+		if(button.style.visibility !="") button.style.visibility = ""; 
 
+	} else { 
+		newText+="DISCONNECTED... please wait"; 
+		if(button.style.visibility !="hidden") button.style.visibility = "hidden"; 
+	}
 		
 	if(newText!=oldText) { 
 		outputTextDom.innerHTML = newText; 
@@ -276,12 +286,17 @@ function updateDisplay() {
 function onResize(){ 
 	canvas.width = window.innerWidth; 
 	canvas.height = window.innerWidth*background.height/background.width;
-	button.style.left = (canvas.width - button.offsetWidth*1.1)+'px'; 
+	
+	var domScale = map(canvas.width, 100,1000,0.7,1,true); 
+	
+	console.log(canvas.width, domScale); 
+	outputTextDom.style.transform = button.style.transform = "scale("+domScale+")"; 
+	outputTextDom.style.transformOrigin = "top left"; 
+	button.style.transformOrigin = "top right";
+	button.style.left = (canvas.width - button.offsetWidth*1.15)+'px'; 
+	
 	dirty = true; 
 }
-
-
-
 
 function Light(rect, letter, bulbpos, bulbColour) { 
 	
@@ -387,7 +402,7 @@ function canvasMouseMove(e) {
 	mouseX = (e.offsetX)*s; 
 	mouseY = (e.offsetY)*s;
 
-	if(!inControl) return; 
+	if((!inControl) &&(socket.connected)) return; 
 
 	for(var i = 0; i<lights.length; i++)  { 
 		var l = lights[i]; 
@@ -410,8 +425,8 @@ function canvasMouseDown(e) {
 	mouseDown = true; 
 
 	e.preventDefault();
-	if(!inControl) return; 
-
+	if((!inControl) &&(socket.connected)) return; 
+	
 	for(var i = 0; i<lights.length; i++)  { 
 
 		var l = lights[i]; 
@@ -426,7 +441,7 @@ function canvasMouseDown(e) {
 function canvasMouseUp(e) { 
 	mouseDown = false; 
 
-	if(!inControl) return; 
+	if((!inControl) &&(socket.connected)) return; 
 	
 	for(var i = 0; i<lights.length; i++)  { 
 		var l = lights[i]; 
@@ -466,7 +481,7 @@ function initSocket() {
 	});
 	function setControl(state) { 
 		inControl = state;
-		button.innerText=inControl?"Currently communicating" : "Let me try";
+		button.innerText=inControl?"Currently sending" : "Send a message";
 	}
 	socket.on('letter', function(data) { 
 		var l = lightsById[data.letter];
@@ -483,6 +498,30 @@ function initSocket() {
 		queue = data.queue; 
 		currentControllerName = data.currentControllerName; 
 		lastStatus = data; 
+	});
+	
+	socket.on('queuejoined', function(data) { 
+		console.log('queuejoined', data); 
+		button.innerText = "Leave queue"; 
+		queueJoined = true; 
+		queueRequestWaiting = false; 
+	});
+	socket.on('queueleft', function(data) { 
+		console.log('queueleft', data); 
+		button.innerText = "Send a message"; 
+		queueJoined = false; 
+		queueRequestWaiting = false; 
+	});
+	socket.on('reload', function(url) { 
+
+		if(url) { 
+				document.location = url;
+		} else {
+			if(room=="default") 
+				document.location = window.location.href.split("?")[0]+"?nocache="+Date.now(); 
+			else 
+				document.location = window.location.href.split("?")[0]+"?room="+room+"&nocache="+Date.now(); 
+		}
 	});
 	
 	return socket; 
@@ -549,12 +588,19 @@ function RemotePointer(img) {
 	
 }
 
-function requestControl() { 
-	console.log('request control'); 
-	if(!inControl) { 
-		socket.emit('joinqueue'); 
-		button.innerText="Control Requested"; 
-	}
+function buttonPressed() { 
+
+	if((!inControl) && (!queueRequestWaiting)) {
+		if(!queueJoined) { 
+			socket.emit('joinqueue'); 
+			button.innerText="sending request";
+			queueRequestWaiting = true; 
+		} else { 
+			socket.emit('leavequeue'); 
+			button.innerText="sending request";
+			queueRequestWaiting = true; 
+		} 
+	} 
 }
 
 

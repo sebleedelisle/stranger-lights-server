@@ -27,25 +27,24 @@ var currentController = null;
 var currentControllerChangeTime = 0; 
 var queue = []; 
 var queueShiftTime = Date.now()+100000; 
-
+var statusDirty = true;
 
 
 setInterval(update, 1000);
 
 function update() { 
-	
 	updateQueue(); 
-	
-	sendStatus();
-	
-	
 }
 
 
 function updateQueue() { 
+	
+
+	
 	// if no one currently in control, then give control to first person in queue
 	if((currentController==null) && (queue.length>0) ) {
 		setActiveSender(queue.shift()); 
+		statusDirty = true; 
 	}
 	
 	var now = Date.now(); 
@@ -53,17 +52,24 @@ function updateQueue() {
 	if(queue.length==0) { 
 		// if there's no one in the queue then keep giving the person playing 
 		queueShiftTime = now+controlTimeLength; 
+		statusDirty = true; 
 		// or if the current controller has been on for ages, then give them another five secs
 	} else if((now - currentControllerChangeTime > controlTimeLength) && (queueShiftTime-Date.now()>5000)){ 
 		queueShiftTime = Date.now()+5000; 
+		statusDirty = true; 
 	} 
 	// check time since last person was in control, and if they're out of time, take 
 	// control away and give it to the next person in the queue. 
 	if(Date.now()>queueShiftTime) { 
 		setActiveSender(queue.shift()); 
 		queueShiftTime = Date.now()+controlTimeLength;
+		statusDirty = true; 
 	}
-
+	
+	if(statusDirty) {
+		sendStatus();
+		statusDirty  = false;  
+	}
 }
 function setActiveSender(socket) { 
 	
@@ -156,6 +162,7 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 		socket.name = getUniqueName();
 		
 		if(data.type=='sender') { 
+			
 			senders.push(socket); 
 			socket.type = 'sender'; 
 			console.log ("new sender, senders.length : ", senders.length, senders.length==1);
@@ -165,7 +172,7 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 		
 			// if you're the first sender here then you get control by default! 
 			if(senders.length == 1 ) setActiveSender(socket); 
-			
+			//setTimeout(function() {socket.emit('reload', 'http://seb.ly');}, 5000); 
 		} else if(data.type=='receiver') { 
 			receivers.push(socket); 
 			socket.type = 'receiver';
@@ -173,7 +180,7 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 			// send out confirmation that the socket has registered
 			// TODO send out list of rooms, queue, num of connections etc
 			socket.emit('registered', { name: socket.name });
-	
+			//socket.emit('reboot'); 
 		} 
 		// to get all rooms : 
 		//console.log(io.rooms);
@@ -224,8 +231,13 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 	// with the name of the room in. 
 	socket.on('joinqueue', function (data) { 
 		if(queue.indexOf(socket)==-1) queue.push(socket); 
+		statusDirty = true; 
+		socket.emit('queuejoined', queue.length); 
 		updateQueue(); 
-		sendStatus(); 
+	});
+	socket.on('leavequeue', function (data) { 
+		if(removeElementFromArray(socket, queue)) statusDirty = true;;  
+		socket.emit('queueleft', queue.length); 
 	});
 	
 	
@@ -238,7 +250,7 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 		removeElementFromArray(socket, receivers); 
 		removeElementFromArray(socket, senders); 
 		removeElementFromArray(socket.name, usedNames); 
-		removeElementFromArray(socket, queue); 
+		if(removeElementFromArray(socket, queue)) statusDirty = true; ; 
 
 		if(currentController ==socket) { 
 			currentController = null; 
@@ -281,7 +293,10 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 function removeElementFromArray(element, array) { 
 	var index = array.indexOf(element); 
 	if(index>-1) { 
-		array.splice(index, 1); 
+		array.splice(index, 1);
+		return true;  
+	} else {
+		return false; 
 	}
 	
 }
