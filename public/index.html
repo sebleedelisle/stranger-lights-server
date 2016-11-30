@@ -71,6 +71,7 @@ var mouseX = 0, mouseY = 0, lastMouseX, lastMouseY, mouseDown = false, lastMouse
 var pointerImg = new Image(); 
 	pointerImg.src = 'pointer.png'; 
 var pointer = new RemotePointer(pointerImg); 
+var lastTouchTime = 0; 
 
 var background = new Image(); 
 	background.src = 'wallbackground.jpg'; 
@@ -180,7 +181,7 @@ function update() {
 	
 	if(inControl) { 
 		if(Date.now()-lastMouseSent>100) { 
-			if((lastMouseX!=mouseX) || (lastMouseY!=mouseY)) {
+			if((Date.now()-lastTouchTime>5000) && ((lastMouseX!=mouseX) || (lastMouseY!=mouseY))) {
 				socket.emit('mouse', {x:mouseX, y:mouseY});
 			}
 		
@@ -412,7 +413,9 @@ function canvasTouchStart(e) {
 	e.preventDefault();
 }
 function updateTouches(touches) { 
-	
+
+	lastTouchTime = Date.now();
+
 	if((!inControl) &&(socket.connected)) return; 
 	
 	var s = background.width/canvas.width; 
