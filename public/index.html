@@ -451,7 +451,7 @@ function initSocket() {
 	socket.on('registered', function(data) { 
 		console.log('registered', data); 
 		socket.name = name = data.name;
-		socket.timeOffset =  data.time - Date.now();
+		socket.timeOffset =   Date.now() - data.time;
 		
 		setControl(false);
 		updateDisplay();
