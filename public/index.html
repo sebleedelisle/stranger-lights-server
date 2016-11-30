@@ -7,22 +7,9 @@
 	<style>
 	body { 
 		margin:0px;
+		color:white; 
+		background-color: #221105;
 	}
-	.letter {
-		
-		font-family : sans-serif;
-		display : block; 
-		background : white; 
-		border : 2px black solid;
-		border-radius : 8px;  
-		width : 70px; 
-		height : 70px; 
-		float : left;
-		text-align:center;
-		margin:1em;
-		padding-top:1.5em;
-		padding-bottom:0em;
-	} 
 	#button {	
 		color : red;
 		font-family : sans-serif;
@@ -40,8 +27,8 @@
 		padding-bottom:1em;
 	
 		position:absolute;
-			
-		
+		cursor:pointer;
+		user-select: none;
 	}
 	#outputText { 
 		position:absolute;
@@ -49,14 +36,17 @@
 		margin:2em; 
 		color : #cccccc;
 		pointer-events : none;
-		
+		user-select: none;
+	}
+	canvas { 
+		user-select: none;	
 	}
 	</style>
   </head>
   <body>
 	
-	<span id="button" onclick="buttonPressed()">Request control</span>
-	<span id="outputText" ></span>
+	<div id="button">Request control</div>
+	<div id="outputText" ></div>
 	<script src="lightcolours.js"></script>
 	<script type="text/javascript">
 
@@ -64,6 +54,7 @@
 
 var name = ''; 
 var queue = []; 
+var queueLength = 0; 
 var roomList = []; 
 var inControl = false; 
 var currentControllerName; 
@@ -88,9 +79,11 @@ var outputTextDom = document.getElementById('outputText');
 
 var lights = [];
 var lightsById = {}; 
+
 var queueJoined = false; 
 var queueRequestWaiting = false; 
 
+var messages = []; 
 
 window.addEventListener('load', initialise); 
 window.addEventListener('resize', onResize); 
@@ -158,6 +151,9 @@ function initInterface() {
 	canvas.addEventListener('mousedown', canvasMouseDown); 
 	canvas.addEventListener('mouseup', canvasMouseUp);
 	canvas.addEventListener('mouseout', canvasMouseUp);	
+	
+	button.addEventListener('click', buttonPress); 
+	button.addEventListener('mousedown', function(e){e.preventDefault();}); 
 	
 	var letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'; 
 	
@@ -260,6 +256,7 @@ function updateDisplay() {
 			}
 			if(queue.length>0) { 
 				newText+="<br><br>Waiting list :";
+				
 				for (var i = 0; i<queue.length; i++) { 
 					var qname = queue[i]; 
 					if(qname==name) {
@@ -274,6 +271,7 @@ function updateDisplay() {
 	 				}
 					
 				}
+				if(queueLength>20) newText+="<br>... and "+(queueLength-20)+" more!";
 			}
 			newText+='<br clear="all">';
 		}
@@ -554,6 +552,7 @@ function initSocket() {
 		} 
 	});
 	socket.on('mouse', function(data) { 
+		//messages.push({type:mouse
 		if(!inControl) pointer.setPosition(data.x, data.y); 
 	});
 	
@@ -562,6 +561,13 @@ function initSocket() {
 		queue = data.queue; 
 		currentControllerName = data.currentControllerName; 
 		lastStatus = data; 
+		queueLength = data.queueLength; 
+	});
+	
+	socket.on('resetletters', function() { 
+		for(var i =0 ; i<lights.length;i++) { 
+			lights[i].lightOn = false; 
+		}	 
 	});
 	
 	socket.on('queuejoined', function(data) { 
@@ -652,7 +658,7 @@ function RemotePointer(img) {
 	
 }
 
-function buttonPressed() { 
+function buttonPress() { 
 
 	if((!inControl) && (!queueRequestWaiting)) {
 		if(!queueJoined) { 
@@ -664,6 +670,7 @@ function buttonPressed() {
 			button.innerText="sending request";
 			queueRequestWaiting = true; 
 		} 
+		
 	} 
 }
 

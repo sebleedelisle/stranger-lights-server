@@ -13,7 +13,7 @@ app.use(express.static('public')); //tell the server that ./public/ contains the
 var names = ["hopper", "nancy", "billy", "max", "docbrenner", "jonathan", "eleven", "lucas", "will", "karen", "barb", "mike", "dustin", "joyce"]; 
 var controlTimeLength = 20000; 
 
-
+var letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; 
 // data specific to room
 // list of receivers
 var receivers = []; 
@@ -28,7 +28,7 @@ var currentControllerChangeTime = 0;
 var queue = []; 
 var queueShiftTime = Date.now()+100000; 
 var statusDirty = true;
-
+var recordedMessage = ""; 
 
 setInterval(update, 1000);
 
@@ -38,9 +38,7 @@ function update() {
 
 
 function updateQueue() { 
-	
 
-	
 	// if no one currently in control, then give control to first person in queue
 	if((currentController==null) && (queue.length>0) ) {
 		setActiveSender(queue.shift()); 
@@ -54,12 +52,14 @@ function updateQueue() {
 		queueShiftTime = now+controlTimeLength; 
 		statusDirty = true; 
 		// or if the current controller has been on for ages, then give them another five secs
-	} else if((now - currentControllerChangeTime > controlTimeLength) && (queueShiftTime-Date.now()>5000)){ 
-		queueShiftTime = Date.now()+5000; 
+	} else if((now - currentControllerChangeTime > controlTimeLength) && (queueShiftTime-Date.now()>3000)){ 
+		queueShiftTime = Date.now()+3000; 
 		statusDirty = true; 
 	} 
 	// check time since last person was in control, and if they're out of time, take 
-	// control away and give it to the next person in the queue. 
+	// control away and give it to the next person in the queue.
+	
+	// TODO boot people off who haven't done anything!  
 	if(Date.now()>queueShiftTime) { 
 		setActiveSender(queue.shift()); 
 		queueShiftTime = Date.now()+controlTimeLength;
@@ -76,6 +76,7 @@ function setActiveSender(socket) {
 	// TODO reset light if on but not off sent
 	
 	//console.log('setActiveSender ', socket); 
+	console.log("------ " + recordedMessage); 
 	
 	if(currentController == socket) return;
 	if(currentController!=null) { 
@@ -87,10 +88,20 @@ function setActiveSender(socket) {
 	if(!currentController) return; 
 	console.log('giving control to ', currentController.name); 
 	currentController.emit('control', true);
+	currentController.controlStartTime = Date.now(); 
+	currentController.messageCount  = 0 ; 
+	
+	
 	
 	//console.log(currentController, currentController==null);
 	//console.log('giving control to ', currentController.name); 
 	currentControllerChangeTime = Date.now(); 	
+	
+	for(var room in currentController.rooms) { 
+		if(room!=currentController.id) io.sockets.to(room).emit('resetletters'); 
+	}
+	
+	recordedMessage = ""; 
 }
 
 
@@ -105,7 +116,7 @@ function getStatusObject() {
 	// queue -
 	// list of names in the queue
 	var queueArray = []; 
-	for (var i = 0; i<queue.length && i<20; i++) { 
+	for (var i = 0; i<queue.length && i<=20; i++) { 
 		queueArray.push(queue[i].name); 
 	} 
 	status.queue = queueArray; 
@@ -143,6 +154,9 @@ function sendStatus() {
 io.sockets.on('connection', function (socket) { //gets called whenever a client connects
 	
 	console.log('connected '); 
+	
+	socket.messageCount=0;
+	socket.controlStartTime = 0;  
 		
 	// if we get a message of type 'register' then... 
 	socket.on('register', function (data) { 
@@ -153,8 +167,11 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 		}
 		socket.registered = true;
 		
-		
-		if(!checkRegisterData(data)) return; 
+		// in future there will be separate rooms... 
+		if((!checkRegisterData(data)) || (data.room!="default")) {
+			socket.disconnect(); 
+			return;
+		} 
 		
 		socket.room = data.room; 
 		socket.join(data.room); 
@@ -199,27 +216,69 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 	
 	socket.on('letter', function (data) { 
 		if(currentController!=socket) {
-			console.log('warning - control message from unauthorised sender'); 
+			//console.log('warning - control message from unauthorised sender'); 
 			return;
 		}
 		// TODO check message validity
-		// send the  message out to all other clients in the same room
-		for(var room in socket.rooms) { 
-			if(room!=socket.id) io.sockets.to(room).emit('letter', data); 
+		
+		if(!checkValidLetterMessage(data)) {
+		//if((data.letter.length>1) || (letters.indexOf(data.letter)==-1)) {
+			console.log('invalid', data);
+			socket.disconnect(); 
+			return; 
+		}
+		if(checkMessageRate(socket)) {
+			// send the  message out to all other clients in the same room
+			for(var room in socket.rooms) { 
+				if(room!=socket.id) io.sockets.to(room).emit('letter', data); 
+			}
+			
+			if(data.type=="on") recordedMessage+=data.letter; 
 		}
 	});
 	
+	function checkValidLetterMessage(data) { 
+		if(!data.hasOwnProperty('letter')) return false; 
+		if(!data.hasOwnProperty('type')) return false; 
+		if(!data.hasOwnProperty('time')) return false;
+		if((data.letter.length!=1) || (letters.indexOf(data.letter)==-1)) return false; 
+		if(!((data.type=='on') || (data.type=='off'))) return false; 
+		return true;
+	}
+	
 	socket.on('mouse', function (data) { 
 		if(currentController!=socket) {
-			console.log('warning - control message from unauthorised sender'); 
+			//console.log('warning - control message from unauthorised sender'); 
 			return;
 		}
+		
+		if(!checkValidMouseMessage(data)) {
+		//if((data.letter.length>1) || (letters.indexOf(data.letter)==-1)) {
+			console.log('invalid mouse', data);
+			socket.disconnect(); 
+			return; 
+		}
+		
 		// TODO check message validity
 		// send the  message out to all other clients in the same room
-		for(var room in socket.rooms) { 
-			if(room!=socket.id) io.sockets.to(room).emit('mouse', data); 
+		if(checkMessageRate(socket)) {
+			for(var room in socket.rooms) { 
+				if(room!=socket.id) io.sockets.to(room).emit('mouse', data); 
+			}
 		}
 	});
+	
+	function checkValidMouseMessage(data) { 
+		if(!data.hasOwnProperty('x')) return false; 
+		if(!data.hasOwnProperty('y')) return false;
+		if(!isNumeric(data.x)) return false; 
+		if(!isNumeric(data.y)) return false; 
+		return true;  
+		
+	}
+	function isNumeric(n) {
+	  return !isNaN(parseFloat(n)) && isFinite(n);
+	}
 	
 	// clients can join their own room by sending a 'joinroom' message
 	// with the name of the room in. 
@@ -260,7 +319,20 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 	});
 
 
+	function checkMessageRate(socket) { 
+		
+		socket.messageCount++; 
+		var rate =  socket.messageCount / (Date.now()-socket.controlStartTime)  ; 
+		//console.log("rate", rate); 
 	
+		if(rate>0.08) { 
+			socket.disconnect(); 
+			return false; 
+		} else {
+			return true; 
+		}
+		
+	}
 	
 	
 	function checkRegisterData(data) { 
