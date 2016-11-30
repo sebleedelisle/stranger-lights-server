@@ -80,7 +80,6 @@ var ctx = canvas.getContext('2d');
 var dirty = true; 
 
 var room = getQueryVariable("room") || "default";
-console.log("room", room);
 
 var socket = initSocket(); 
 
@@ -452,7 +451,7 @@ function initSocket() {
 	socket.on('registered', function(data) { 
 		console.log('registered', data); 
 		socket.name = name = data.name;
-		socket.timeOffset = Date.now() - data.time;
+		socket.timeOffset =  data.time - Date.now();
 		
 		setControl(false);
 		updateDisplay();
@@ -480,24 +479,15 @@ function initSocket() {
 	});
 	
 	socket.on('status', function(data) { 
-		//console.log('status', data); 
 		nextChangeTime = data.queueShiftTime + socket.timeOffset; 
 		queue = data.queue; 
 		currentControllerName = data.currentControllerName; 
 		lastStatus = data; 
-	
 	});
 	
 	return socket; 
 }
-// 
-// function updatePointer(pos){ 
-// 	//if(!inControl) pointer.style.visibility = 'visible';
-// 	pointerX = pos.x; 
-// 	pointerY = pos.y; 
-// 	
-// 	
-// }
+
 
 function RemotePointer(img) { 
 	
