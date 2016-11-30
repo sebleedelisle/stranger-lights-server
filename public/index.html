@@ -148,10 +148,16 @@ function initInterface() {
 	document.body.appendChild(canvas); 
 	onResize(); 
 	
+	if('ontouchstart' in window){
+		canvas.addEventListener('touchstart', canvasTouchStart);
+		canvas.addEventListener('touchend', canvasTouchEnd); 
+		canvas.addEventListener('touchmove', canvasTouchMove); 
+	}
 	canvas.addEventListener('mousemove', canvasMouseMove); 
 	canvas.addEventListener('mousedown', canvasMouseDown); 
 	canvas.addEventListener('mouseup', canvasMouseUp);
 	canvas.addEventListener('mouseout', canvasMouseUp);	
+	
 	var letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'; 
 	
 
@@ -244,7 +250,7 @@ function updateDisplay() {
 		
 		} else { 
 			newText = "Connected as <b>"+socket.name+"</b>"; 
-			if(currentControllerName) newText+="<br>"+currentControllerName+" is currently in control"; 
+			if(currentControllerName) newText+="<br>"+currentControllerName+" is currently sending a message"; 
 	
 			newText+="<br><br>";
 		
@@ -309,6 +315,7 @@ function Light(rect, letter, bulbpos, bulbColour) {
 	this.brightness = 0; 
 	var lastBrightness = 1; 
 	var dirty = true; 
+	var touches = this.touches =  []; 
 	
 	this.update = function() { 
 		
@@ -375,17 +382,19 @@ function Light(rect, letter, bulbpos, bulbColour) {
 	}
 	
 	this.mouseDown = function(p) { 
-
-		socket.emit('letter', { letter:this.letter, type:'on', time:Date.now() });
-		this.lightOn = true; 
-
+		if(!this.lightOn) { 
+			console.log(this.letter+" on");
+			socket.emit('letter', { letter:this.letter, type:'on', time:Date.now() });
+			this.lightOn = true; 
+		}
 	}
 
 	this.mouseUp = function(p) { 
-
-	 	socket.emit('letter', { letter:this.letter, type:'off', time:Date.now() });
-		this.lightOn = false;
-		
+		if(this.lightOn) { 
+			console.log(this.letter+" off");
+	 		socket.emit('letter', { letter:this.letter, type:'off', time:Date.now() });
+			this.lightOn = false;
+		}
 	}
 	
 	this.hitTest = function(x,y) { 
@@ -393,8 +402,60 @@ function Light(rect, letter, bulbpos, bulbColour) {
 		else if((y<rect.y) || (y>rect.y+rect.h) ) return false; 
 		else return true; 
 	}
-		
 }
+
+
+
+
+function canvasTouchStart(e) { 
+	updateTouches(e.touches); 
+	e.preventDefault();
+}
+function updateTouches(touches) { 
+	
+	if((!inControl) &&(socket.connected)) return; 
+	
+	var s = background.width/canvas.width; 
+
+
+	for(var i = 0; i<lights.length; i++)  { 
+		var l = lights[i]; 
+	
+		
+		var lighton = false; 
+		
+		for(var j = 0; j<touches.length;j++) { 
+
+			var touch = touches[j]; 
+
+			mouseX = (touch.pageX)*s; 
+			mouseY = (touch.pageY)*s;
+			
+			if(l.hitTest(mouseX, mouseY)) { 
+				lighton = true; 
+			
+			}
+
+		}
+		
+		if(lighton) l.mouseDown(); 
+		else l.mouseUp();
+	
+	}
+
+
+
+}
+
+function canvasTouchMove(e) { 
+	updateTouches(e.touches); 
+	e.preventDefault();
+}
+function canvasTouchEnd(e) { 
+	updateTouches(e.touches); 
+	e.preventDefault();
+}
+
 function canvasMouseMove(e) {
 	
 	var s = background.width/canvas.width; 
