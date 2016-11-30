@@ -11,7 +11,7 @@ app.use(express.static('public')); //tell the server that ./public/ contains the
 // data we need : 
 
 var names = ["hopper", "nancy", "billy", "max", "docbrenner", "jonathan", "eleven", "lucas", "will", "karen", "barb", "mike", "dustin", "joyce"]; 
-var controlTimeLength = 30000; 
+var controlTimeLength = 20000; 
 
 
 // data specific to room
@@ -99,10 +99,11 @@ function getStatusObject() {
 	// queue -
 	// list of names in the queue
 	var queueArray = []; 
-	for (var i = 0; i<queue.length; i++) { 
+	for (var i = 0; i<queue.length && i<20; i++) { 
 		queueArray.push(queue[i].name); 
 	} 
 	status.queue = queueArray; 
+	status.queueLength = queue.length; 
 	
 	// senderChangeTime - 
 	// what time do we change senders
@@ -230,13 +231,14 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 	
 
 	socket.on('disconnect', function (data) { 
-		console.log('disconnected'); 
+		console.log('disconnected '+socket); 
 		
 
 		
 		removeElementFromArray(socket, receivers); 
 		removeElementFromArray(socket, senders); 
 		removeElementFromArray(socket.name, usedNames); 
+		removeElementFromArray(socket, queue); 
 
 		if(currentController ==socket) { 
 			currentController = null; 

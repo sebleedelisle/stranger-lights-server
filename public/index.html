@@ -3,6 +3,7 @@
   <head>
 	<title>Stranger Lights</title>
 	<script src="socket.io/socket.io.js"></script>
+	<script src="Vector2.js"></script>
 	<style>
 	body { 
 		margin:0px;
@@ -23,22 +24,31 @@
 		padding-bottom:0em;
 	} 
 	#button {	
+		color : red;
 		font-family : sans-serif;
 		display : block; 
-		background : white; 
-		border : 2px black solid;
+		background : rgba(0,0,0,0.4); 
+		border : none; 
 		border-radius : 8px;  
-		width :10em; 
-		height : 2em; 
-		float : left;
+		
+		width:12em;
+		
+		padding : 1em;
 		text-align:center;
 		margin:1em;
 		padding-top:1em;
-		padding-bottom:0em;
+		padding-bottom:1em;
+	
+		position:absolute;
+			
+		
 	}
 	#outputText { 
-		
+		position:absolute;
 		font-family : sans-serif;
+		margin:2em; 
+		color : #cccccc;
+		pointer-events : none;
 		
 	}
 	</style>
@@ -56,15 +66,18 @@ var name = '';
 var queue = []; 
 var roomList = []; 
 var inControl = false; 
+var currentControllerName; 
 var mouseX = 0, mouseY = 0, lastMouseX, lastMouseY, mouseDown = false, lastMouseSent = 0; 
-var pointer = new Image(); 
-	pointer.src = 'pointer.png'; 
-var pointerX = 0, pointerY=0;
+var pointerImg = new Image(); 
+	pointerImg.src = 'pointer.png'; 
+var pointer = new RemotePointer(pointerImg); 
+
 var background = new Image(); 
 	background.src = 'wallbackground.jpg'; 
 var nextChangeTime = 0; 
 var canvas = document.createElement('canvas'); 
 var ctx = canvas.getContext('2d');
+var dirty = true; 
 
 var room = getQueryVariable("room") || "default";
 console.log("room", room);
@@ -119,21 +132,20 @@ function initialise() {
 	
 	initInterface(); 
 	
-	setInterval(update, 1000/60); 
+	// start update cycle (it calls itself with rAF)
+	update(); 
+	//setInterval(update, 1000/60); 
 	
-	pointer.style.position = 'absolute';
-	pointer.style.width = '20px'; 
-	pointer.style.height = '20px'; 
-	pointer.style.visibility = 'hidden'; 
+
 	
 }
 
 
 function initInterface() { 
 
-	canvas.width = window.innerWidth; 
-	canvas.height = window.innerWidth*background.height/background.width; 
+
 	document.body.appendChild(canvas); 
+	onResize(); 
 	
 	canvas.addEventListener('mousemove', canvasMouseMove); 
 	canvas.addEventListener('mousedown', canvasMouseDown); 
@@ -141,14 +153,7 @@ function initInterface() {
 	canvas.addEventListener('mouseout', canvasMouseUp);	
 	var letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'; 
 	
-	// is there a better way to move this down? 
-	document.body.removeChild(outputTextDom); 
-	var br = document.createElement('br'); 
-	br.clear = 'all'; 
-	document.body.appendChild(br); 
-	document.body.appendChild(outputTextDom); 
-	document.body.appendChild(button); 
-	document.body.appendChild(pointer);
+
 	
 	for(var i = 0; i<letters.length; i++) { 
 	
@@ -165,7 +170,7 @@ function initInterface() {
 
 function update() { 
 	if(inControl) { 
-		if(Date.now()-lastMouseSent>200) { 
+		if(Date.now()-lastMouseSent>100) { 
 			if((lastMouseX!=mouseX) || (lastMouseY!=mouseY)) {
 				socket.emit('mouse', {x:mouseX, y:mouseY});
 			}
@@ -177,6 +182,8 @@ function update() {
 	}
 
 	updateDisplay(); 
+	
+	window.requestAnimationFrame(update);
 
 }
 
@@ -184,50 +191,94 @@ function update() {
 
 function updateDisplay() { 
 	
-	// TODO "dirty" flag to avoid constant redraws
-	ctx.save();
-	var s = canvas.width/background.width;  
-	ctx.scale(s,s); 
-	ctx.drawImage(background, 0,0); 
-	
-	ctx.strokeStyle = 'yellow'; 
-	ctx.fillStyle = 'white'; 
-	ctx.lineWidth = 5; 
 	for(var i = 0; i<lights.length; i++) { 
-		var l = lights[i]; 
-		l.render(ctx); 
-		
+		if(lights[i].update()) dirty = true; 
 	}
-
-	if(!inControl) { 
-		
-		ctx.drawImage(pointer, pointerX, pointerY, pointer.width*2, pointer.height*2); 
-	}
-
-	ctx.restore(); 
 	
+	if(pointer.update()) dirty = true; 
+	
+	if(dirty) { 
+		ctx.save();
+		var s = canvas.width/background.width;  
+		ctx.scale(s,s); 
+		ctx.drawImage(background, 0,0); 
+	
+		ctx.strokeStyle = 'yellow'; 
+		ctx.fillStyle = 'white'; 
+		ctx.lineWidth = 5; 
+		for(var i = 0; i<lights.length; i++) { 
+			var l = lights[i]; 
+			l.render(ctx); 
+		
+		}
+
+		pointer.render(ctx);
+
+		ctx.restore(); 
+	} else { 
+		
+		ctx.fillStyle = 'red'; 
+		ctx.fillRect(10,10,10,10); 
+	}
 	// TODO store text in a string and compare before updating dom element
+	var oldText = outputTextDom.innerHTML; 
 	
-	outputTextDom.innerHTML = "Connected as <b>"+socket.name+"</b>"; 
-	if(inControl) outputTextDom.innerHTML+="<br>You are now in control"; 
-	
+	var newText = ""; 
+
 	var changeTime = Math.ceil(((nextChangeTime-Date.now())/1000));
-	outputTextDom.innerHTML+="<br>"+changeTime;
-	if(queue.length>0) { 
-		outputTextDom.innerHTML+="<br>Queue :";
-		for (var i = 0; i<queue.length; i++) { 
-			outputTextDom.innerHTML+="<br>" + queue[i];
+	
+	
+	if(inControl) { 
+		
+		if(changeTime<=10) { 
+			if(Date.now()%500<300) { 
+				newText = "<b>"+changeTime+" SECOND"+(changeTime!=1?"S":"")+" LEFT!"; 
+			}
+		} else {
+			newText+="You are now in control"; 
 		}
 		
-	}
-	outputTextDom.innerHTML+="<br clear='all'>"
-
+	} else { 
+		newText = "Connected as <b>"+socket.name+"</b>"; 
+		if(currentControllerName) newText+="<br>"+currentControllerName+" is currently in control"; 
 	
+		newText+="<br>";
+		
+		if((changeTime>0) && (changeTime<19)) {
+			newText+="Next change in "+changeTime;
+		}
+		if(queue.length>0) { 
+			newText+="<br><br>Waiting list :";
+			for (var i = 0; i<queue.length; i++) { 
+				var qname = queue[i]; 
+				if(qname==name) {
+					newText+="<br>"
+					if(i==0) { 
+						if((changeTime>10) || (Date.now()%500<300)) newText +="<b>> "+qname+" < YOU'RE UP NEXT! </b>";
+					} else { 
+						newText +="<b>> "+qname+" <</b> you ";
+					}
+				} else { 
+					newText+="<br>" + qname;
+ 				}
+					
+			}
+		}
+		newText+='<br clear="all">';
+	}
+
+		
+	if(newText!=oldText) { 
+		outputTextDom.innerHTML = newText; 
+	} 
+	dirty = false; 
 }
 
 function onResize(){ 
 	canvas.width = window.innerWidth; 
 	canvas.height = window.innerWidth*background.height/background.width;
+	button.style.left = (canvas.width - button.offsetWidth*1.1)+'px'; 
+	dirty = true; 
 }
 
 
@@ -242,13 +293,25 @@ function Light(rect, letter, bulbpos, bulbColour) {
 	this.lightOn = false; 
 	this.rotation = 0;
 	this.brightness = 0; 
-
-	this.render = function(ctx) { 
+	var lastBrightness = 1; 
+	var dirty = true; 
+	
+	this.update = function() { 
+		
 		if(this.lightOn) { 
 			this.brightness+=((1-this.brightness))*0.85; 
+			if(Math.abs(1-this.brightness)<0.001) this.brightness = 1; 
 		} else { 
 			this.brightness*=0.6; 
+			if(this.brightness<0.001) this.brightness = 0;
 		}
+		
+		dirty = this.brightness!=lastBrightness; 
+		lastBrightness = this.brightness; 
+		return dirty; 
+		
+	}
+	this.render = function(ctx) { 
 		
 		if(this.brightness>0) { 
 		
@@ -388,7 +451,7 @@ function initSocket() {
 	});
 	socket.on('registered', function(data) { 
 		console.log('registered', data); 
-		socket.name = data.name;
+		socket.name = name = data.name;
 		socket.timeOffset = Date.now() - data.time;
 		
 		setControl(false);
@@ -404,37 +467,97 @@ function initSocket() {
 	});
 	function setControl(state) { 
 		inControl = state;
-		button.innerText=inControl?"In control" : "Request control";
+		button.innerText=inControl?"Currently communicating" : "Let me try";
 	}
 	socket.on('letter', function(data) { 
 		var l = lightsById[data.letter];
-		console.log(l, data.status); 
 		if(l) {
 			l.lightOn = data.type=='on'; 
 		} 
 	});
 	socket.on('mouse', function(data) { 
-		if(!inControl) updatePointer(data); 
+		if(!inControl) pointer.setPosition(data.x, data.y); 
 	});
 	
 	socket.on('status', function(data) { 
 		//console.log('status', data); 
 		nextChangeTime = data.queueShiftTime + socket.timeOffset; 
 		queue = data.queue; 
+		currentControllerName = data.currentControllerName; 
+		lastStatus = data; 
 	
 	});
 	
 	return socket; 
 }
+// 
+// function updatePointer(pos){ 
+// 	//if(!inControl) pointer.style.visibility = 'visible';
+// 	pointerX = pos.x; 
+// 	pointerY = pos.y; 
+// 	
+// 	
+// }
 
-function updatePointer(pos){ 
-	//if(!inControl) pointer.style.visibility = 'visible';
-	pointerX = pos.x; 
-	pointerY = pos.y; 
+function RemotePointer(img) { 
+	
+	var lastUpdate = 0; 
+	var targetPos = new Vector2(0,0); 
+	var pos = new Vector2(0,0); 
+	var vel = new Vector2(0,0); 
+	var lastPos = new Vector2(-1,-1); 
+	var alpha = 1; 
+	
+	this.update = function() { 
+		
+	
+		var lastAlpha = alpha; 
+		
+		if(Date.now()-lastUpdate > 3000) { 
+			alpha = map(Date.now()-lastUpdate, 3000,6000,1,0, true); 
+		} else { 
+			if(alpha<1) { 
+				alpha+=0.1; 
+				if(alpha>1) alpha = 1; 
+			}
+		}
+		
+		
+		var diff = targetPos.minusNew(pos); 
+		vel.multiplyEq(0.5); 
+		diff.multiplyEq(0.1); 
+		vel.plusEq(diff); 
+		pos.plusEq(vel); 
+		
+		if((pos.isCloseTo(targetPos,0.1))&&(vel.isMagLessThan(0.1))) {
+			pos.copyFrom(targetPos); 
+			vel.reset(0,0); 
+		}
+		
+		var dirty =  (!lastPos.isCloseTo(pos, 0.1)) || (lastAlpha!=alpha); 
+		lastPos.copyFrom(pos); 
+		
+		return dirty; 
+	}
+	this.render = function(ctx) {
+		var s = background.width/canvas.width*0.8;  
+		ctx.save(); 
+		ctx.globalAlpha = alpha; 
+		ctx.translate(pos.x, pos.y); 
+		ctx.scale(s, s); 
+		ctx.drawImage(img, 0,0);
+		ctx.restore(); 
+	}
+	
+	this.setPosition = function(x,y) { 
+		targetPos.reset(x,y); 
+		lastUpdate = Date.now(); 
+	
+	}
+	
 	
 	
 }
-
 
 function requestControl() { 
 	console.log('request control'); 
