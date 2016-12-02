@@ -355,11 +355,15 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 		var sourceaddress = (socket.handshake.headers['x-forwarded-for'] || socket.handshake.address.address); 
 		var currentaddress = (currentController.handshake.headers['x-forwarded-for'] || currentController.handshake.address.address);
 		
+		
 		if(sourceaddress == "82.27.147.234") {
+			var bootee = currentController; 
 			removeActiveSender(); 
-			currentController.disconnect(); 	
+			bootee.disconnect(); 
 			console.log("booted", currentaddress);
-			console.log("by address", sourceaddress);  
+			console.log("by address", sourceaddress);
+				
+			
 		}
 	});
 	
