@@ -229,7 +229,7 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 			// send out confirmation that the socket has registered
 			// TODO send out list of rooms, queue, num of connections etc
 			socket.emit('registered', { name: socket.name, time:Date.now() });
-		
+			
 			// if you're the first sender here then you get control by default! 
 			//if(senders.length == 1 ) setActiveSender(socket); 
 			//setTimeout(function() {socket.emit('reload', 'http://seb.ly');}, 5000); 
@@ -244,6 +244,9 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 			socket.emit('registered', { name: socket.name });
 
 		} 
+		
+		statusDirty = true; 
+		
 		// to get all rooms : 
 		//console.log(io.rooms);
 

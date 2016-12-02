@@ -195,11 +195,11 @@ function update() {
 
 
 function updateDisplay() { 
-	var flickerLight = Math.floor(Math.random()*lights.length*300); 
+	var flickerLight = Math.floor(Math.random()*lights.length*100); 
 	var dimmed = ((currentControllerName=="")&&(socket.connected)); 
 	for(var i = 0; i<lights.length; i++) { 
 		lights[i].dimmed = dimmed;
-		//if(dimmed && (flickerLight==i)) lights[i].startFlicker(0.1); 
+		if(dimmed && (flickerLight==i)) lights[i].startFlicker(0.1); 
 		if(lights[i].update()) dirty = true; 
 	}
 	
@@ -533,9 +533,7 @@ function canvasMouseMove(e) {
 }
 
 function canvasMouseDown(e) { 
-	// var s = background.width/canvas.width;
-	// 	p = {x:Math.round(e.clientX*s), y:Math.round(e.clientY*s)};
-	// 	console.log(p); 
+
 	mouseDown = true; 
 
 	e.preventDefault();
@@ -561,7 +559,6 @@ function canvasMouseUp(e) {
 		var l = lights[i]; 
 		
 		if(l.lightOn) l.turnOff(true); 
-
 
 	}	
 }
