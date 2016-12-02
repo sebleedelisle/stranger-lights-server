@@ -128,7 +128,7 @@ function setActiveSender(socket) {
 	for(var room in currentController.rooms) { 
 		if(room!=currentController.id) io.sockets.to(room).emit('resetletters'); 
 	}
-	
+	lightsState = []; 
 	recordedMessage = ""; 
 	statusDirty = true; 
 }
@@ -243,10 +243,8 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 		} 
 		// to get all rooms : 
 		//console.log(io.rooms);
-		
 
 	});
-	
 	
 	socket.on('letter', function (data) { 
 		if(currentController!=socket) {
@@ -268,11 +266,13 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 			}
 			lastMessageTime = Date.now(); 
 			if(data.type=="on") recordedMessage+=data.letter; 
-			//lightsState[letters.indexOf(data.letter)] = (data.type=="on"); 
+			lightsState[letters.indexOf(data.letter)] = (data.type=="on")?1:0; 
+			
 		}
 	});
 	
 	function checkValidLetterMessage(data) { 
+		if(getLetterCount()>12) return false; 
 		if(!data.hasOwnProperty('letter')) return false; 
 		if(!data.hasOwnProperty('type')) return false; 
 		if(!data.hasOwnProperty('time')) return false;
@@ -281,6 +281,13 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 		return true;
 	}
 	
+	function getLetterCount() { 
+		var c = 0; 
+		for(var i = 0; i<lightsState.length; i++) { 
+			if(lightsState[i]) c++; 
+		}
+		return c; 
+	}
 	socket.on('mouse', function (data) { 
 		if(currentController!=socket) {
 			//console.log('warning - control message from unauthorised sender'); 
@@ -344,13 +351,14 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 		
 	});
 	socket.on('bootcurrent', function(data) { 
-		console.log("booted : " + currentController.handshake.address); 
+		console.log("your address : ", socket.request.connection.remoteAddress); 
+		console.log("booted : " + currentController.request.connection.remoteAddress); 
 		currentController.disconnect(); 	
 	});
 	
 
 	socket.on('disconnect', function (data) { 
-		//console.log('disconnected '+socket); 
+		console.log('disconnected '+socket); 
 		
 		removeElementFromArray(socket, receivers); 
 		removeElementFromArray(socket, senders); 
