@@ -212,7 +212,7 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 		
 		// in future there will be separate rooms... 
 		if((!checkRegisterData(data)) || (data.room!="default")) {
-			socket.disconnect(); 
+			killClient(socket); 
 			return;
 		} 
 		
@@ -256,7 +256,7 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 		
 		if(!checkValidLetterMessage(data)) {
 			console.log('invalid', data);
-			socket.disconnect(); 
+			killClient(socket); 
 			return; 
 		}
 		if(checkMessageRate(socket)) {
@@ -273,6 +273,7 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 	});
 	
 	function checkValidLetterMessage(data) { 
+		if(!data) return false; 
 		if(getLetterCount()>12) return false; 
 		if(!data.hasOwnProperty('letter')) return false; 
 		if(!data.hasOwnProperty('type')) return false; 
@@ -298,7 +299,7 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 		if(!checkValidMouseMessage(data)) {
 		//if((data.letter.length>1) || (letters.indexOf(data.letter)==-1)) {
 			console.log('invalid mouse', data);
-			socket.disconnect(); 
+			killClient(socket); 
 			return; 
 		}
 		
@@ -398,7 +399,7 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 	
 		if((rate>0.08) && (sendingDuration>100)){ 
 			console.log("message rate exceeded : ", rate, socket.messageCount, Date.now()-socket.controlStartTime);
-			socket.disconnect(); 
+			killClient(socket); 
 			return false; 
 		} else {
 			return true; 
@@ -411,7 +412,15 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 		if(!((data.type=='sender') || (data.type=='receiver'))) return false; 
 		return true;
 	}
-
+	function killClient(socket) { 
+		console.log('kill', socket.connected); 
+		if(socket && (socket.connected)) { 
+			if(socket == currentController) {
+				removeActiveSender(); 
+			}
+			socket.disconnect(); 
+		}
+	}
 	function getUniqueName() { 
 		var num = 0; 
 		while(1) {

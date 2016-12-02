@@ -599,7 +599,7 @@ function initSocket() {
 		button.innerText=inControl?"Stop sending" : "Send a message";
 	}
 	socket.on('letter', function(data) { 
-		console.log('letter', data); 
+		//console.log('letter', data); 
 		var l = lightsById[data.letter];
 		if(l) {
 			if(data.type=='on') l.turnOn();
