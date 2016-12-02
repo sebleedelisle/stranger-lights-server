@@ -236,6 +236,8 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 		} else if(data.type=='receiver') { 
 			receivers.push(socket); 
 			socket.type = 'receiver';
+			
+			console.log ("new receiver : ", receiver.length);
 		
 			// send out confirmation that the socket has registered
 			// TODO send out list of rooms, queue, num of connections etc
