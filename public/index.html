@@ -222,11 +222,7 @@ function updateDisplay() {
 		pointer.render(ctx);
 
 		ctx.restore(); 
-	} else { 
-		
-		ctx.fillStyle = 'red'; 
-		ctx.fillRect(10,10,10,10); 
-	}
+	} 
 	// TODO store text in a string and compare before updating dom element
 	var oldText = outputTextDom.innerHTML; 
 	

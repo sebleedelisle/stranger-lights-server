@@ -76,14 +76,15 @@ function setActiveSender(socket) {
 	// TODO reset light if on but not off sent
 	
 	//console.log('setActiveSender ', socket); 
-	console.log("------ " + recordedMessage); 
-	
+
 	if(currentController == socket) return;
 	if(currentController!=null) { 
 		currentController.emit('control', false); 
 		console.log('removing control from ', currentController.name); 
 		
 	}
+	console.log("------ " + recordedMessage); 
+		
 	currentController = socket; 
 	if(!currentController) return; 
 	console.log('giving control to ', currentController.name); 
@@ -153,14 +154,14 @@ function sendStatus() {
 }
 io.sockets.on('connection', function (socket) { //gets called whenever a client connects
 	
-	console.log('connected '); 
+	//console.log('connected '); 
 	
 	socket.messageCount=0;
 	socket.controlStartTime = 0;  
 		
 	// if we get a message of type 'register' then... 
 	socket.on('register', function (data) { 
-		console.log('register', data);
+		//console.log('register', data);
 		if(socket.registered) {
 			console.log('client already registered!'); 
 			return; 
@@ -302,9 +303,7 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 	
 
 	socket.on('disconnect', function (data) { 
-		console.log('disconnected '+socket); 
-		
-
+		//console.log('disconnected '+socket); 
 		
 		removeElementFromArray(socket, receivers); 
 		removeElementFromArray(socket, senders); 
