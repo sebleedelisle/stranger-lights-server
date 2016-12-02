@@ -33,6 +33,7 @@ var kickOffWarningTime = 5000;
 var statusDirty = true;
 var lastMessageTime = 0; 
 var recordedMessage = ""; 
+var lightsState = []; 
 
 setInterval(update, 1000);
 
@@ -267,6 +268,7 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 			}
 			lastMessageTime = Date.now(); 
 			if(data.type=="on") recordedMessage+=data.letter; 
+			//lightsState[letters.indexOf(data.letter)] = (data.type=="on"); 
 		}
 	});
 	
@@ -341,7 +343,10 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 		}
 		
 	});
-	
+	socket.on('bootcurrent', function(data) { 
+		console.log("booted : " + currentController.handshake.address); 
+		currentController.disconnect(); 	
+	});
 	
 
 	socket.on('disconnect', function (data) { 
