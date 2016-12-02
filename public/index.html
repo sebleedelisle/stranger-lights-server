@@ -73,6 +73,7 @@ var ctx = canvas.getContext('2d');
 var dirty = true; 
 
 var room = getQueryVariable("room") || "default";
+var debug = getQueryVariable("debug") || false;
 
 var socket = initSocket(); 
 
@@ -198,7 +199,7 @@ function updateDisplay() {
 	var dimmed = ((currentControllerName=="")&&(socket.connected)); 
 	for(var i = 0; i<lights.length; i++) { 
 		lights[i].dimmed = dimmed;
-		if(dimmed && (flickerLight==i)) lights[i].startFlicker(0.1); 
+		//if(dimmed && (flickerLight==i)) lights[i].startFlicker(0.1); 
 		if(lights[i].update()) dirty = true; 
 	}
 	
@@ -223,7 +224,11 @@ function updateDisplay() {
 		pointer.render(ctx);
 
 		ctx.restore(); 
-	} 
+	} else if(debug) { 
+		ctx.fillStyle = 'red'; 
+		ctx.fillRect(4,4,10,10); 
+		
+	}
 	// TODO store text in a string and compare before updating dom element
 	var oldText = outputTextDom.innerHTML; 
 	
@@ -248,16 +253,18 @@ function updateDisplay() {
 		
 		} else { 
 			newText = "Connected as <b>"+socket.name+"</b>"; 
-			if(currentControllerName) newText+="<br>"+currentControllerName+" is currently sending a message"; 
+			if(currentControllerName) {
+				newText+="<br>"+currentControllerName+" is currently sending a message"; 
 	
-			newText+="<br><br>";
+				newText+="<br><br>";
 		
-			if((changeTime>0) && (changeTime<19)) {
-				if(lastStatus.timeout) 
+				if((changeTime>0) && (changeTime<19)) {
+					if(lastStatus.timeout) 
 					newText+="Next change in "+changeTime+" due to inactivity";
-				else
-					newText+="Next change in "+changeTime;
-			}
+					else
+						newText+="Next change in "+changeTime;
+				} 
+			} else newText+="<br><br>";
 			if(queue.length>0) { 
 				newText+="<br><br>Waiting list :";
 				
@@ -298,7 +305,7 @@ function onResize(){
 	
 	var domScale = map(canvas.width, 100,1000,0.7,1,true); 
 	
-	console.log(canvas.width, domScale); 
+	//console.log(canvas.width, domScale); 
 	outputTextDom.style.transform = button.style.transform = "scale("+domScale+")"; 
 	outputTextDom.style.transformOrigin = "top left"; 
 	button.style.transformOrigin = "top right";
@@ -333,18 +340,21 @@ function Light(rect, letter, bulbpos, bulbColour) {
 			
 			var target = (flickerCountdown%12<flickerSpeed)?0.5:flickerMinBrightness;
 			this.brightness+=((target-this.brightness))*0.8;
-			if(this.letter == "A") console.log(flickerCountdown, target,this.brightness); 
+			//if(this.letter == "A") console.log(flickerCountdown, target,this.brightness);
+			 
 			
 		} else if(this.dimmed){ 
 			this.brightness+=((0.5-this.brightness))*fadeSpeed; 
-			if(Math.abs(0.5-this.brightness)<0.001) this.brightness = 0.5; 
+			if(Math.abs(0.5-this.brightness)<0.01) this.brightness = 0.5; 
+			//if(this.letter == "A") console.log('dimmed', this.brightness, lastBrightness, this.brightness==lastBrightness);
+			
 		} else if(this.lightOn) { 
 			this.brightness+=((1-this.brightness))*0.85; 
 			if(Math.abs(1-this.brightness)<0.001) this.brightness = 1; 
 		} else { 
 			if(turnOffDelay>0) {
 				turnOffDelay--; 
-				 
+				this.brightness+=((1-this.brightness))*0.85; 
 			} else { 
 				this.brightness*=0.6; 
 				if(this.brightness<0.001) this.brightness = 0;
@@ -408,7 +418,7 @@ function Light(rect, letter, bulbpos, bulbColour) {
 	this.turnOn = function(send) { 
 		if(!this.lightOn) { 
 			if(send) { 
-				console.log(this.letter+" on");
+				//console.log(this.letter+" on");
 				socket.emit('letter', { letter:this.letter, type:'on', time:Date.now() });
 			}
 			this.lightOn = true; 
@@ -419,13 +429,13 @@ function Light(rect, letter, bulbpos, bulbColour) {
 	this.turnOff = function(send) { 
 		if(this.lightOn) { 
 			if(send) { 
-				console.log(this.letter+" off");
+				//console.log(this.letter+" off");
 	 			socket.emit('letter', { letter:this.letter, type:'off', time:Date.now() });
 			}
 			var framessinceturnon = Math.floor((Date.now()-turnOnTime)/16); // 16 mils per frame
-			console.log(framessinceturnon);
-			if(framessinceturnon<2) { 
-				turnOffDelay = 2; 
+			//console.log("framesinceturnon", framessinceturnon);
+			if(framessinceturnon<3) { 
+				turnOffDelay = 3; 
 			}
 			
 			this.lightOn = false;
@@ -601,7 +611,7 @@ function initSocket() {
 	});
 	
 	socket.on('status', function(data) { 
-		console.log('status', data);
+		//console.log('status', data);
 		nextChangeTime = data.queueShiftTime + socket.timeOffset; 
 		queue = data.queue; 
 		if(data.currentControllerName!=currentControllerName) { 

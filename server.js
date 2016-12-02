@@ -66,9 +66,9 @@ function updateQueue() {
 		// or if the current sender has been sending for ages kick em off in 5 secs
 		if((now-lastMessageTime>timeoutTime) ||(now - currentControllerChangeTime > controlTimeLength)){
 			
-			console.log('last message longer than 5 secs'); 
+			//console.log('last message longer than 5 secs'); 
 			if(queueShiftTime > now+kickOffWarningTime) { 
-				console.log('updating queueShift time',queueShiftTime , now+kickOffWarningTime); 
+				//console.log('updating queueShift time',queueShiftTime , now+kickOffWarningTime); 
 				queueShiftTime = now+kickOffWarningTime;
 				statusDirty = true; 
 			}
@@ -111,7 +111,7 @@ function setActiveSender(socket) {
 		
 	currentController = socket; 
 	if(!currentController) return; 
-	console.log('giving control to ', currentController.name); 
+	//console.log('giving control to ', currentController.name); 
 	currentController.emit('control', true);
 	
 	currentControllerChangeTime = currentController.controlStartTime = Date.now(); 
@@ -135,7 +135,7 @@ function setActiveSender(socket) {
 function removeActiveSender() { 
 	if(currentController!=null) { 
 		currentController.emit('control', false); 
-		console.log('removing control from ', currentController.name); 
+		//console.log('removing control from ', currentController.name); 
 		currentController = null; 
 		console.log("------ " + recordedMessage);
 		statusDirty=true;
@@ -188,7 +188,7 @@ function getStatusObject() {
 	
 }
 function sendStatus() { 
-	console.log("send status"); 
+	//console.log("send status"); 
 	io.sockets.to("default").emit('status', getStatusObject()); 
 }
 
@@ -223,7 +223,7 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 			
 			senders.push(socket); 
 			socket.type = 'sender'; 
-			console.log ("new sender, senders.length : ", senders.length, senders.length==1);
+			console.log ("new sender, senders.length : ", senders.length);
 			// send out confirmation that the socket has registered
 			// TODO send out list of rooms, queue, num of connections etc
 			socket.emit('registered', { name: socket.name, time:Date.now() });
@@ -335,7 +335,7 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 		socket.emit('queueleft', queue.length); 
 	});
 	socket.on('stopsending', function (data) { 
-		console.log('stopsending');
+		//console.log('stopsending');
 		if(socket == currentController) { 
 			removeActiveSender(); 
 		}
