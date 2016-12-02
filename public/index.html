@@ -57,12 +57,13 @@ var queue = [];
 var queueLength = 0; 
 var roomList = []; 
 var inControl = false; 
-var currentControllerName; 
+var currentControllerName =""; 
 var mouseX = 0, mouseY = 0, lastMouseX, lastMouseY, mouseDown = false, lastMouseSent = 0; 
 var pointerImg = new Image(); 
 	pointerImg.src = 'pointer.png'; 
 var pointer = new RemotePointer(pointerImg); 
 var lastTouchTime = 0; 
+var lastStatus = {currentControllerName:""}; 
 
 var background = new Image(); 
 	background.src = 'wallbackground.jpg'; 
@@ -169,8 +170,6 @@ function initInterface() {
 		
 	}
 
-	
-	
 }
 
 function update() { 
@@ -180,7 +179,6 @@ function update() {
 			if((Date.now()-lastTouchTime>5000) && ((lastMouseX!=mouseX) || (lastMouseY!=mouseY))) {
 				socket.emit('mouse', {x:mouseX, y:mouseY});
 			}
-		
 			lastMouseX = mouseX; 
 			lastMouseY = mouseY;
 			lastMouseSent = Date.now(); 
@@ -196,8 +194,11 @@ function update() {
 
 
 function updateDisplay() { 
-	
+	var flickerLight = Math.floor(Math.random()*lights.length*300); 
+	var dimmed = ((currentControllerName=="")&&(socket.connected)); 
 	for(var i = 0; i<lights.length; i++) { 
+		lights[i].dimmed = dimmed;
+		if(dimmed && (flickerLight==i)) lights[i].startFlicker(0.1); 
 		if(lights[i].update()) dirty = true; 
 	}
 	
@@ -234,8 +235,12 @@ function updateDisplay() {
 		if(inControl) { 
 		
 			if(changeTime<=10) { 
-				if(Date.now()%500<300) { 
-					newText = "<b>"+changeTime+" SECOND"+(changeTime!=1?"S":"")+" LEFT!"; 
+				if(Date.now()%500<300) {
+					if(lastStatus.timeout)  
+						newText = "<b>TIMEOUT IN "+changeTime+" SECOND"+(changeTime!=1?"S":""); 
+					else 
+						newText = "<b>"+changeTime+" SECOND"+(changeTime!=1?"S":"")+" LEFT!"; 
+						
 				}
 			} else {
 				newText+="Send your message now!"; 
@@ -248,7 +253,10 @@ function updateDisplay() {
 			newText+="<br><br>";
 		
 			if((changeTime>0) && (changeTime<19)) {
-				newText+="Next change in "+changeTime;
+				if(lastStatus.timeout) 
+					newText+="Next change in "+changeTime+" due to inactivity";
+				else
+					newText+="Next change in "+changeTime;
 			}
 			if(queue.length>0) { 
 				newText+="<br><br>Waiting list :";
@@ -312,11 +320,25 @@ function Light(rect, letter, bulbpos, bulbColour) {
 	var dirty = true; 
 	var turnOnTime = 0; 
 	var turnOffDelay = 0; 
+	this.dimmed = false; 
+	var flickerCountdown = 0; 
+	var flickerOn = false; 
+	var flickerSpeed = Math.random()*5+4;
+	var flickerMinBrightness = 0; 
+	var fadeSpeed = Math.random()*0.3+0.01; 
 	
 	this.update = function() { 
-		
-		
-		if(this.lightOn) { 
+		if(flickerCountdown>0) { 
+			flickerCountdown--; 
+			
+			var target = (flickerCountdown%12<flickerSpeed)?0.5:flickerMinBrightness;
+			this.brightness+=((target-this.brightness))*0.8;
+			if(this.letter == "A") console.log(flickerCountdown, target,this.brightness); 
+			
+		} else if(this.dimmed){ 
+			this.brightness+=((0.5-this.brightness))*fadeSpeed; 
+			if(Math.abs(0.5-this.brightness)<0.001) this.brightness = 0.5; 
+		} else if(this.lightOn) { 
 			this.brightness+=((1-this.brightness))*0.85; 
 			if(Math.abs(1-this.brightness)<0.001) this.brightness = 1; 
 		} else { 
@@ -411,6 +433,14 @@ function Light(rect, letter, bulbpos, bulbColour) {
 		}
 	}
 	
+	this.startFlicker = function(strength) { 
+		strength = (typeof strength !== 'undefined') ? strength : 1; // 1 is full strength
+		flickerCountdown = 24; 
+		flickerMinBrightness = 0.5-(strength/2); 
+		
+		
+	}
+	
 	this.hitTest = function(x,y) { 
 		if((x<rect.x) || (x>rect.x+rect.w) ) return false; 
 		else if((y<rect.y) || (y>rect.y+rect.h) ) return false; 
@@ -458,9 +488,6 @@ function updateTouches(touches) {
 		else l.turnOff(true);
 	
 	}
-
-
-
 }
 
 function canvasTouchMove(e) { 
@@ -570,14 +597,18 @@ function initSocket() {
 		} 
 	});
 	socket.on('mouse', function(data) { 
-		//messages.push({type:mouse
 		if(!inControl) pointer.setPosition(data.x, data.y); 
 	});
 	
 	socket.on('status', function(data) { 
+		console.log('status', data);
 		nextChangeTime = data.queueShiftTime + socket.timeOffset; 
 		queue = data.queue; 
-		currentControllerName = data.currentControllerName; 
+		if(data.currentControllerName!=currentControllerName) { 
+			
+			currentControllerName = data.currentControllerName; 
+			if(currentControllerName!="") flickerLights(); 
+		}
 		lastStatus = data; 
 		queueLength = data.queueLength; 
 	});
@@ -615,7 +646,11 @@ function initSocket() {
 	return socket; 
 }
 
-
+function flickerLights() { 
+	for(var i = 0; i<lights.length; i++) { 
+		lights[i].startFlicker(); 
+	}
+}
 function RemotePointer(img) { 
 	
 	var lastUpdate = 0; 

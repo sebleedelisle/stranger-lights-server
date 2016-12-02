@@ -6,11 +6,11 @@ var port = parseInt(process.argv[2], 10) || 80;
 console.log('starting server on port', port); 
 
 server.listen(port); //start the webserver on specified port
-app.use(express.static('public')); //tell the server that ./public/ contains the static webpages
+app.use(express.static(__dirname+'/public')); //tell the server that ./public/ contains the static webpages
 
 // data we need : 
 
-var names = ["hopper", "nancy", "billy", "max", "docbrenner", "jonathan", "eleven", "lucas", "will", "karen", "barb", "mike", "dustin", "joyce"]; 
+var names = ["eleven", "lucas", "barb", "chiefhopper", "nancy", "billy", "karen", "dustin", "max", "joyce",  "jonathan", "will", "mike", "docbrenner" ]; 
 var controlTimeLength = 30000; 
 
 var letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; 
@@ -27,7 +27,11 @@ var currentController = null;
 var currentControllerChangeTime = 0; 
 var queue = []; 
 var queueShiftTime = Date.now()+100000; 
+var timeoutTime = 5000;
+
+var kickOffWarningTime = 5000;  
 var statusDirty = true;
+var lastMessageTime = 0; 
 var recordedMessage = ""; 
 
 setInterval(update, 1000);
@@ -38,33 +42,57 @@ function update() {
 
 
 function updateQueue() { 
-
+	
+	var now = Date.now(); 
+	
 	// if no one currently in control, then give control to first person in queue
 	if((currentController==null) && (queue.length>0) ) {
 		setActiveSender(queue.shift()); 
 		statusDirty = true; 
 	}
 	
-	var now = Date.now(); 
-	// if there's no one in the queue then let the current person keep playing
-	if(queue.length==0) { 
-		// if there's no one in the queue then keep giving the person playing 
-		queueShiftTime = now+controlTimeLength; 
-		statusDirty = true; 
-		// or if the current controller has been on for ages, then give them another five secs
-	} else if((now - currentControllerChangeTime > controlTimeLength) && (queueShiftTime-Date.now()>3000)){ 
-		queueShiftTime = Date.now()+3000; 
-		statusDirty = true; 
-	} 
+	//  boot people off who haven't done anything!  
+	if(currentController!=null) { 
+		// if no queue, then keep adding time
+		// if(queue.length == 0) { 
+		// 	if(queueShiftTime<now+controlTimeLength){
+		// 		queueShiftTime = now + 100000; 
+		// 		statusDirty = true;
+		// 	}
+		// // or if there is a queue..
+		// } else {
+			
+		// if there have been no messages for 5 seconds (timeout)
+		// or if the current sender has been sending for ages kick em off in 5 secs
+		if((now-lastMessageTime>timeoutTime) ||(now - currentControllerChangeTime > controlTimeLength)){
+			
+			console.log('last message longer than 5 secs'); 
+			if(queueShiftTime > now+kickOffWarningTime) { 
+				console.log('updating queueShift time',queueShiftTime , now+kickOffWarningTime); 
+				queueShiftTime = now+kickOffWarningTime;
+				statusDirty = true; 
+			}
+		} else if(queueShiftTime!= currentControllerChangeTime+controlTimeLength) { 
+			queueShiftTime = currentControllerChangeTime+controlTimeLength;
+			statusDirty = true; 
+		}
+	
+	}
+	
+	
+
+
 	// check time since last person was in control, and if they're out of time, take 
 	// control away and give it to the next person in the queue.
 	
-	// TODO boot people off who haven't done anything!  
+	if(now>queueShiftTime) { 
+		if(queue.length>0) {
+			setActiveSender(queue.shift()); 
+		} else { 
+			removeActiveSender(); 
+		}
+		//queueShiftTime = Date.now()+controlTimeLength;
 	
-	if(Date.now()>queueShiftTime) { 
-		setActiveSender(queue.shift()); 
-		queueShiftTime = Date.now()+controlTimeLength;
-		statusDirty = true; 
 	}
 	
 	if(statusDirty) {
@@ -85,20 +113,23 @@ function setActiveSender(socket) {
 	if(!currentController) return; 
 	console.log('giving control to ', currentController.name); 
 	currentController.emit('control', true);
-	currentController.controlStartTime = Date.now(); 
+	
+	currentControllerChangeTime = currentController.controlStartTime = Date.now(); 
+	queueShiftTime = currentControllerChangeTime+controlTimeLength;
+	lastMessageTime = currentControllerChangeTime; 
+	
 	currentController.messageCount  = 0 ; 
-	
-	
-	
+
 	//console.log(currentController, currentController==null);
 	//console.log('giving control to ', currentController.name); 
-	currentControllerChangeTime = Date.now(); 	
+	
 	
 	for(var room in currentController.rooms) { 
 		if(room!=currentController.id) io.sockets.to(room).emit('resetletters'); 
 	}
 	
 	recordedMessage = ""; 
+	statusDirty = true; 
 }
 
 function removeActiveSender() { 
@@ -106,8 +137,10 @@ function removeActiveSender() {
 		currentController.emit('control', false); 
 		console.log('removing control from ', currentController.name); 
 		currentController = null; 
+		console.log("------ " + recordedMessage);
+		statusDirty=true;
 	}
-	console.log("------ " + recordedMessage);
+
 	
 }
 
@@ -128,10 +161,11 @@ function getStatusObject() {
 	status.queue = queueArray; 
 	status.queueLength = queue.length; 
 	
+	
 	// senderChangeTime - 
 	// what time do we change senders
 	status.queueShiftTime = queueShiftTime; 
-	
+	status.timeout = (Date.now()-lastMessageTime>timeoutTime); 
 	
 	// number of senders
 	status.senderCount = senders.length; 
@@ -154,9 +188,10 @@ function getStatusObject() {
 	
 }
 function sendStatus() { 
-	//socket.emit('status', getStatusObject()); 
+	console.log("send status"); 
 	io.sockets.to("default").emit('status', getStatusObject()); 
 }
+
 io.sockets.on('connection', function (socket) { //gets called whenever a client connects
 	
 	//console.log('connected '); 
@@ -230,7 +265,7 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 			for(var room in socket.rooms) { 
 				if(room!=socket.id) io.sockets.to(room).emit('letter', data); 
 			}
-			
+			lastMessageTime = Date.now(); 
 			if(data.type=="on") recordedMessage+=data.letter; 
 		}
 	});
@@ -320,7 +355,8 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 		if(currentController ==socket) { 
 			currentController = null; 
 		}
-		if(senders.length==1) setActiveSender(senders[0]); 
+		
+		//if(senders.length==1) setActiveSender(senders[0]); 
 
 	});
 
@@ -338,10 +374,8 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 			return false; 
 		} else {
 			return true; 
-		}
-		
+		}	
 	}
-	
 	
 	function checkRegisterData(data) { 
 		if(!data.hasOwnProperty('room')) return false; 
