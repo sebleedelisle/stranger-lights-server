@@ -310,16 +310,23 @@ function Light(rect, letter, bulbpos, bulbColour) {
 	this.brightness = 0; 
 	var lastBrightness = 1; 
 	var dirty = true; 
-	var touches = this.touches =  []; 
+	var turnOnTime = 0; 
+	var turnOffDelay = 0; 
 	
 	this.update = function() { 
+		
 		
 		if(this.lightOn) { 
 			this.brightness+=((1-this.brightness))*0.85; 
 			if(Math.abs(1-this.brightness)<0.001) this.brightness = 1; 
 		} else { 
-			this.brightness*=0.6; 
-			if(this.brightness<0.001) this.brightness = 0;
+			if(turnOffDelay>0) {
+				turnOffDelay--; 
+				 
+			} else { 
+				this.brightness*=0.6; 
+				if(this.brightness<0.001) this.brightness = 0;
+			}
 		}
 		
 		dirty = this.brightness!=lastBrightness; 
@@ -376,19 +383,31 @@ function Light(rect, letter, bulbpos, bulbColour) {
 		
 	}
 	
-	this.mouseDown = function(p) { 
+	this.turnOn = function(send) { 
 		if(!this.lightOn) { 
-			console.log(this.letter+" on");
-			socket.emit('letter', { letter:this.letter, type:'on', time:Date.now() });
+			if(send) { 
+				console.log(this.letter+" on");
+				socket.emit('letter', { letter:this.letter, type:'on', time:Date.now() });
+			}
 			this.lightOn = true; 
+			turnOnTime = Date.now(); 
 		}
 	}
 
-	this.mouseUp = function(p) { 
+	this.turnOff = function(send) { 
 		if(this.lightOn) { 
-			console.log(this.letter+" off");
-	 		socket.emit('letter', { letter:this.letter, type:'off', time:Date.now() });
+			if(send) { 
+				console.log(this.letter+" off");
+	 			socket.emit('letter', { letter:this.letter, type:'off', time:Date.now() });
+			}
+			var framessinceturnon = Math.floor((Date.now()-turnOnTime)/16); // 16 mils per frame
+			console.log(framessinceturnon);
+			if(framessinceturnon<2) { 
+				turnOffDelay = 2; 
+			}
+			
 			this.lightOn = false;
+			
 		}
 	}
 	
@@ -435,8 +454,8 @@ function updateTouches(touches) {
 
 		}
 		
-		if(lighton) l.mouseDown(); 
-		else l.mouseUp();
+		if(lighton) l.turnOn(true); 
+		else l.turnOff(true);
 	
 	}
 
@@ -465,10 +484,10 @@ function canvasMouseMove(e) {
 	for(var i = 0; i<lights.length; i++)  { 
 		var l = lights[i]; 
 		if((l.lightOn) && (!l.hitTest(mouseX, mouseY))) { 
-			l.mouseUp(); 
+			l.turnOff(true); 
 		}
 		else if((mouseDown) && (!l.lightOn) && (l.hitTest(mouseX, mouseY))) {
-			l.mouseDown(); 
+			l.turnOn(true); 
 		}
 		
 	}
@@ -489,7 +508,7 @@ function canvasMouseDown(e) {
 
 		var l = lights[i]; 
 		if(l.hitTest(mouseX, mouseY)) { 
-			l.mouseDown(); 
+			l.turnOn(true); 
 		}
 		
 	}
@@ -504,7 +523,7 @@ function canvasMouseUp(e) {
 	for(var i = 0; i<lights.length; i++)  { 
 		var l = lights[i]; 
 		
-		if(l.lightOn) l.mouseUp(); 
+		if(l.lightOn) l.turnOff(true); 
 
 
 	}	
@@ -535,16 +554,19 @@ function initSocket() {
 		// outputTextDom.innerHTML = "control : "+state;
 		setControl(state); 
 		updateDisplay(); 
+		queueJoined = false;
 	
 	});
 	function setControl(state) { 
 		inControl = state;
-		button.innerText=inControl?"Currently sending" : "Send a message";
+		button.innerText=inControl?"Stop sending" : "Send a message";
 	}
 	socket.on('letter', function(data) { 
+		console.log('letter', data); 
 		var l = lightsById[data.letter];
 		if(l) {
-			l.lightOn = data.type=='on'; 
+			if(data.type=='on') l.turnOn();
+			else if(data.type=='off') l.turnOff(); 
 		} 
 	});
 	socket.on('mouse', function(data) { 
@@ -655,21 +677,26 @@ function RemotePointer(img) {
 }
 
 function buttonPress() { 
-
-	if((!inControl) && (!queueRequestWaiting)) {
-		if(!queueJoined) { 
-			socket.emit('joinqueue'); 
-			button.innerText="sending request";
-			queueRequestWaiting = true; 
-		} else { 
-			socket.emit('leavequeue'); 
-			button.innerText="sending request";
-			queueRequestWaiting = true; 
-		} 
+	console.log('queueRequestWaiting', queueRequestWaiting, inControl, queueJoined);
+	if (!queueRequestWaiting) { 
+		if(!inControl)  {
+			if(!queueJoined) { 
+				console.log('join queue'); 
+				socket.emit('joinqueue'); 
+				button.innerText="sending request";
+				queueRequestWaiting = true; 
+			} else { 
+				socket.emit('leavequeue'); 
+				button.innerText="sending request";
+				queueRequestWaiting = true; 
+			} 
 		
-	} 
+		}  else { 
+			console.log("stopsending"); 
+			socket.emit('stopsending'); 
+		}
+	}
 }
-
 
 function rgb(r, g, b) { return 'rgb('+clamp(Math.round(r),0,255)+', '+clamp(Math.round(g),0,255)+', '+clamp(Math.round(b),0,255)+')';};
 function rgba(r, g, b, a) { return 'rgba('+clamp(Math.round(r),0,255)+', '+clamp(Math.round(g),0,255)+', '+clamp(Math.round(b),0,255)+', '+clamp(a,0,1)+')';};
