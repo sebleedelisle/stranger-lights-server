@@ -195,7 +195,7 @@ function sendStatus() {
 
 io.sockets.on('connection', function (socket) { //gets called whenever a client connects
 	
-	//console.log('connected '); 
+	console.log('connected ', socket.request.connection.remoteAddress, socket.handshake.address); 
 	
 	socket.messageCount=0;
 	socket.controlStartTime = 0;  
