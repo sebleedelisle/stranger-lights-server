@@ -195,7 +195,8 @@ function sendStatus() {
 
 io.sockets.on('connection', function (socket) { //gets called whenever a client connects
 	
-	console.log('connected ', socket.request.connection.remoteAddress, socket.handshake.address); 
+	//console.log('connected ', socket.request.connection.remoteAddress, socket.handshake.address); 
+	console.log('connected ', socket.handshake.headers['x-forwarded-for'] || socket.handshake.address.address);
 	
 	socket.messageCount=0;
 	socket.controlStartTime = 0;  
@@ -351,14 +352,24 @@ io.sockets.on('connection', function (socket) { //gets called whenever a client 
 		
 	});
 	socket.on('bootcurrent', function(data) { 
-		console.log("your address : ", socket.request.connection.remoteAddress); 
-		console.log("booted : " + currentController.request.connection.remoteAddress); 
-		currentController.disconnect(); 	
+		var sourceaddress = (socket.handshake.headers['x-forwarded-for'] || socket.handshake.address.address); 
+		var currentaddress = (currentController.handshake.headers['x-forwarded-for'] || currentController.handshake.address.address);
+		
+		if(sourceaddress == "82.27.147.234") {
+			removeActiveSender(); 
+			currentController.disconnect(); 	
+			console.log("booted", currentaddress);
+			console.log("by address", sourceaddress);  
+		}
 	});
 	
 
 	socket.on('disconnect', function (data) { 
 		console.log('disconnected '+socket); 
+		
+		if(socket==currentController) { 
+			removeActiveSender(); 
+		}
 		
 		removeElementFromArray(socket, receivers); 
 		removeElementFromArray(socket, senders); 
