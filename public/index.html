@@ -51,19 +51,18 @@
 	<script type="text/javascript">
 
 
-
 var name = ''; 
 var queue = []; 
 var queueLength = 0; 
 var roomList = []; 
-var inControl = false; 
-var currentControllerName =""; 
+var sendingMessage = false; 
+var activeSenderName =""; 
 var mouseX = 0, mouseY = 0, lastMouseX, lastMouseY, mouseDown = false, lastMouseSent = 0; 
 var pointerImg = new Image(); 
 	pointerImg.src = 'pointer.png'; 
 var pointer = new RemotePointer(pointerImg); 
 var lastTouchTime = 0; 
-var lastStatus = {currentControllerName:""}; 
+var lastStatus = {activeSenderName:""}; 
 
 var background = new Image(); 
 	background.src = 'wallbackground.jpg'; 
@@ -107,7 +106,7 @@ var rotations = [
 	0, 		// J
 	-20,	// K
 	8,		// L
-	-10,		// M
+	-10,	// M
 	-8, 	// N
 	-12,	// O
 	-13,	// P
@@ -118,28 +117,21 @@ var rotations = [
 	-60,	// U
 	5, 		// V
 	0, 		// W
-	-30, 		// X
+	-30, 	// X
 	0, 		// Y
-	-10 		// Z
+	-10 	// Z
 
 ]; 
 
 
 function initialise() { 
-	
-	initInterface(); 
-	
-	// start update cycle (it calls itself with rAF)
-	update(); 
-	//setInterval(update, 1000/60); 
-	
-
-	
+	initInterface(); 	
+	// start update cycle (it calls itself with requestAnimationFrame)
+	update(); 	
 }
 
 
 function initInterface() { 
-
 
 	document.body.appendChild(canvas); 
 	onResize(); 
@@ -159,24 +151,21 @@ function initInterface() {
 	
 	var letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'; 
 	
-
-	
 	for(var i = 0; i<letters.length; i++) { 
-	
 		var letter =  letters[i]; 
 		var light = new Light(lightRects[i], letter, bulbPositions[i], colours[lightColours[i]]); 
 		if(rotations.length>i) light.rotation = rotations[i]; 
 		lights.push(light); 
-		lightsById[letter] = light;
-		
+		lightsById[letter] = light;	
 	}
-
 }
 
 function update() { 
 	
-	if(inControl) { 
+	if(sendingMessage) { 
+		// send mouse position 10 times a second
 		if(Date.now()-lastMouseSent>100) { 
+			// if we haven't had any touch events for 5 secs, and the mouse has moved
 			if((Date.now()-lastTouchTime>5000) && ((lastMouseX!=mouseX) || (lastMouseY!=mouseY))) {
 				socket.emit('mouse', {x:mouseX, y:mouseY});
 			}
@@ -196,7 +185,7 @@ function update() {
 
 function updateDisplay() { 
 	var flickerLight = Math.floor(Math.random()*lights.length*100); 
-	var dimmed = ((currentControllerName=="")&&(socket.connected)); 
+	var dimmed = ((activeSenderName=="")&&(socket.connected)); 
 	for(var i = 0; i<lights.length; i++) { 
 		lights[i].dimmed = dimmed;
 		if(dimmed && (flickerLight==i)) lights[i].startFlicker(0.1); 
@@ -218,7 +207,6 @@ function updateDisplay() {
 		for(var i = 0; i<lights.length; i++) { 
 			var l = lights[i]; 
 			l.render(ctx); 
-		
 		}
 
 		pointer.render(ctx);
@@ -237,7 +225,7 @@ function updateDisplay() {
 	var changeTime = Math.ceil(((nextChangeTime-Date.now())/1000));
 	
 	if(socket.connected) {
-		if(inControl) { 
+		if(sendingMessage) { 
 		
 			if(changeTime<=10) { 
 				if(Date.now()%500<300) {
@@ -253,8 +241,8 @@ function updateDisplay() {
 		
 		} else { 
 			newText = "Connected as <b>"+socket.name+"</b>"; 
-			if(currentControllerName) {
-				newText+="<br>"+currentControllerName+" is currently sending a message"; 
+			if(activeSenderName) {
+				newText+="<br>"+activeSenderName+" is currently sending a message"; 
 	
 				newText+="<br><br>";
 		
@@ -332,34 +320,35 @@ function Light(rect, letter, bulbpos, bulbColour) {
 	var flickerOn = false; 
 	var flickerSpeed = Math.random()*5+4;
 	var flickerMinBrightness = 0; 
-	var fadeSpeed = Math.random()*0.3+0.01; 
+	var fadeSpeed = Math.random()*0.3+0.05; 
 	
 	this.update = function() { 
+		
+		var target = this.brightness; 
+		var speed = -1; 
+		
 		if(flickerCountdown>0) { 
 			flickerCountdown--; 
-			
-			var target = (flickerCountdown%12<flickerSpeed)?0.5:flickerMinBrightness;
-			this.brightness+=((target-this.brightness))*0.8;
-			//if(this.letter == "A") console.log(flickerCountdown, target,this.brightness);
-			 
-			
+			target = (flickerCountdown%12<flickerSpeed)?0.5:flickerMinBrightness;
+			speed = 0.8; 
 		} else if(this.dimmed){ 
-			this.brightness+=((0.5-this.brightness))*fadeSpeed; 
-			if(Math.abs(0.5-this.brightness)<0.01) this.brightness = 0.5; 
-			//if(this.letter == "A") console.log('dimmed', this.brightness, lastBrightness, this.brightness==lastBrightness);
-			
+			target = 0.5
+			speed = fadeSpeed; 
 		} else if(this.lightOn) { 
-			this.brightness+=((1-this.brightness))*0.85; 
-			if(Math.abs(1-this.brightness)<0.001) this.brightness = 1; 
+			target = 1
+			speed = 0.85; 
 		} else { 
 			if(turnOffDelay>0) {
 				turnOffDelay--; 
-				this.brightness+=((1-this.brightness))*0.85; 
+				target = 1
+				speed = 0.85; 
 			} else { 
-				this.brightness*=0.6; 
-				if(this.brightness<0.001) this.brightness = 0;
+				target=0;
+				speed = 0.2;  
 			}
 		}
+		if(speed>0) this.brightness+=((target-this.brightness))*speed;
+		if(Math.abs(target-this.brightness)<0.01) this.brightness = target; 
 		
 		dirty = this.brightness!=lastBrightness; 
 		lastBrightness = this.brightness; 
@@ -433,9 +422,8 @@ function Light(rect, letter, bulbpos, bulbColour) {
 	 			socket.emit('letter', { letter:this.letter, type:'off', time:Date.now() });
 			}
 			var framessinceturnon = Math.floor((Date.now()-turnOnTime)/16); // 16 mils per frame
-			//console.log("framesinceturnon", framessinceturnon);
-			if(framessinceturnon<3) { 
-				turnOffDelay = 3; 
+			if(framessinceturnon<5) { 
+				turnOffDelay = 5; 
 			}
 			
 			this.lightOn = false;
@@ -469,7 +457,7 @@ function updateTouches(touches) {
 
 	lastTouchTime = Date.now();
 
-	if((!inControl) &&(socket.connected)) return; 
+	if((!sendingMessage) &&(socket.connected)) return; 
 	
 	var s = background.width/canvas.width; 
 
@@ -516,7 +504,7 @@ function canvasMouseMove(e) {
 	mouseX = (e.offsetX)*s; 
 	mouseY = (e.offsetY)*s;
 
-	if((!inControl) &&(socket.connected)) return; 
+	if((!sendingMessage) &&(socket.connected)) return; 
 
 	for(var i = 0; i<lights.length; i++)  { 
 		var l = lights[i]; 
@@ -537,7 +525,7 @@ function canvasMouseDown(e) {
 	mouseDown = true; 
 
 	e.preventDefault();
-	if((!inControl) &&(socket.connected)) return; 
+	if((!sendingMessage) &&(socket.connected)) return; 
 	
 	for(var i = 0; i<lights.length; i++)  { 
 
@@ -553,7 +541,7 @@ function canvasMouseDown(e) {
 function canvasMouseUp(e) { 
 	mouseDown = false; 
 
-	if((!inControl) &&(socket.connected)) return; 
+	if((!sendingMessage) &&(socket.connected)) return; 
 	
 	for(var i = 0; i<lights.length; i++)  { 
 		var l = lights[i]; 
@@ -592,8 +580,8 @@ function initSocket() {
 	
 	});
 	function setControl(state) { 
-		inControl = state;
-		button.innerText=inControl?"Stop sending" : "Send a message";
+		sendingMessage = state;
+		button.innerText=sendingMessage?"Stop sending" : "Send a message";
 	}
 	socket.on('letter', function(data) { 
 		//console.log('letter', data); 
@@ -604,17 +592,17 @@ function initSocket() {
 		} 
 	});
 	socket.on('mouse', function(data) { 
-		if(!inControl) pointer.setPosition(data.x, data.y); 
+		if(!sendingMessage) pointer.setPosition(data.x, data.y); 
 	});
 	
 	socket.on('status', function(data) { 
-		//console.log('status', data);
+		console.log('status', data);
 		nextChangeTime = data.queueShiftTime + socket.timeOffset; 
 		queue = data.queue; 
-		if(data.currentControllerName!=currentControllerName) { 
+		if(data.activeSenderName!=activeSenderName) { 
 			
-			currentControllerName = data.currentControllerName; 
-			if(currentControllerName!="") flickerLights(); 
+			activeSenderName = data.activeSenderName; 
+			if(activeSenderName!="") flickerLights(); 
 		}
 		lastStatus = data; 
 		queueLength = data.queueLength; 
@@ -719,9 +707,9 @@ function RemotePointer(img) {
 }
 
 function buttonPress() { 
-	console.log('queueRequestWaiting', queueRequestWaiting, inControl, queueJoined);
+	console.log('queueRequestWaiting', queueRequestWaiting, sendingMessage, queueJoined);
 	if (!queueRequestWaiting) { 
-		if(!inControl)  {
+		if(!sendingMessage)  {
 			if(!queueJoined) { 
 				console.log('join queue'); 
 				socket.emit('joinqueue'); 
