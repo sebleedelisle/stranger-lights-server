@@ -4,7 +4,8 @@ server = require('http').createServer(app);
 io = require('socket.io').listen(server);
 
 // get the port number from the arguments otherwise use default 80. 	
-var port = parseInt(process.argv[2], 10) || 80;
+//var port = parseInt(process.argv[2], 10) || 80;
+var port = process.env.PORT || 80;
 
 // you can pass through valid admins for the dodgy boot system - see 'bootcurrent' below
 var adminIPs = (process.argv[3] || '0').split(',').join();
